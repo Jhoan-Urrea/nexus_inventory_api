@@ -133,6 +133,20 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- MAPSTRUCT -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>1.5.5.Final</version>
+        </dependency>
+
+        <!-- MAPSTRUCT PROCESSOR -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct-processor</artifactId>
+            <version>1.5.5.Final</version>
+        </dependency>
+
     </dependencies>
 
 	<build>
@@ -161,6 +175,7 @@
 					</excludes>
 				</configuration>
 			</plugin>
+            
 		</plugins>
 	</build>
 
