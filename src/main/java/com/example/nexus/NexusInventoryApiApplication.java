@@ -10,4 +10,4 @@ public class NexusInventoryApiApplication {
 		SpringApplication.run(NexusInventoryApiApplication.class, args);
 	}
 
-}
+} 
