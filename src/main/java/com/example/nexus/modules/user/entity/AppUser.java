@@ -1,5 +1,6 @@
 package com.example.nexus.modules.user.entity;
 
+import com.example.nexus.modules.location.entity.City;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -38,4 +39,8 @@ public class AppUser {
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "city_id", nullable = false)
+    private City city;
 }
