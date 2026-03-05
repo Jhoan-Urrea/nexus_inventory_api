@@ -24,6 +24,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -69,10 +70,13 @@ class AuthServiceImplTest {
 
     @Test
     void loginShouldGenerateAccessAndRefreshTokens() {
-        LoginRequest request = new LoginRequest("user@test.com", "secret123");
+        String email = sampleEmail();
+        String rawPassword = samplePassword();
+        LoginRequest request = new LoginRequest(email, rawPassword);
+        String passwordHash = sampleHash();
 
-        UserDetails principal = User.withUsername("user@test.com")
-                .password("encoded-password")
+        UserDetails principal = User.withUsername(email)
+                .password(passwordHash)
                 .authorities("ROLE_USER")
                 .build();
 
@@ -99,7 +103,7 @@ class AuthServiceImplTest {
 
     @Test
     void loginShouldRegisterFailedAttemptWhenAuthenticationFails() {
-        LoginRequest request = new LoginRequest("user@test.com", "bad-pass");
+        LoginRequest request = new LoginRequest(sampleEmail(), "fail-" + UUID.randomUUID());
 
         when(authenticationManager.authenticate(any(Authentication.class)))
                 .thenThrow(new BadCredentialsException("Bad credentials"));
@@ -112,7 +116,10 @@ class AuthServiceImplTest {
 
     @Test
     void registerShouldValidateAndPersistUserThenIssueTokens() {
-        RegisterRequest request = new RegisterRequest("user", "user@test.com", "secret123", 1L);
+        String email = sampleEmail();
+        String rawPassword = samplePassword();
+        String encodedPassword = sampleHash();
+        RegisterRequest request = new RegisterRequest("user", email, rawPassword, 1L);
 
         City city = City.builder().id(1L).name("Bogota").build();
         Role role = Role.builder().id(10L).name("USER").build();
@@ -129,14 +136,14 @@ class AuthServiceImplTest {
                 .id(99L)
                 .username(request.username())
                 .email(request.email())
-                .password("encoded-password")
+                .password(encodedPassword)
                 .city(city)
                 .roles(Set.of(role))
                 .build();
 
         when(authRegistrationValidationService.validate(request)).thenReturn(validation);
         when(authMapper.toEntity(request)).thenReturn(mappedUser);
-        when(passwordEncoder.encode(request.password())).thenReturn("encoded-password");
+        when(passwordEncoder.encode(request.password())).thenReturn(encodedPassword);
         when(appUserRepository.save(mappedUser)).thenReturn(savedUser);
         when(tokenLifecycleService.issueTokens(any(UserDetails.class))).thenReturn(new AuthResponse("access", "refresh"));
 
@@ -146,19 +153,32 @@ class AuthServiceImplTest {
         assertEquals("refresh", response.refreshToken());
         assertEquals(city, mappedUser.getCity());
         assertEquals(Set.of(role), mappedUser.getRoles());
-        assertEquals("encoded-password", mappedUser.getPassword());
+        assertEquals(encodedPassword, mappedUser.getPassword());
 
         verify(authAuditService).audit(AuthAuditEventType.REGISTER_SUCCESS, request.email(), "127.0.0.1", "User registered");
     }
 
     @Test
     void forgotPasswordShouldDelegateToRecoveryService() {
+        String email = sampleEmail();
         AuthMessageResponse expected = new AuthMessageResponse("ok");
 
-        when(passwordRecoveryService.forgotPassword("user@test.com", "127.0.0.1")).thenReturn(expected);
+        when(passwordRecoveryService.forgotPassword(email, "127.0.0.1")).thenReturn(expected);
 
-        AuthMessageResponse response = authService.forgotPassword("user@test.com", "127.0.0.1");
+        AuthMessageResponse response = authService.forgotPassword(email, "127.0.0.1");
 
         assertEquals("ok", response.message());
+    }
+
+    private String sampleEmail() {
+        return "tester+" + UUID.randomUUID() + "@example.test";
+    }
+
+    private String samplePassword() {
+        return "A1" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private String sampleHash() {
+        return "hash-" + UUID.randomUUID();
     }
 }

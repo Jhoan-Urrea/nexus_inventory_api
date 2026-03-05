@@ -2,6 +2,10 @@ package com.example.nexus.modules.auth.controller;
 
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
+import com.example.nexus.modules.auth.dto.LoginRequest;
+import com.example.nexus.modules.auth.dto.LogoutRequest;
+import com.example.nexus.modules.auth.dto.RefreshTokenRequest;
+import com.example.nexus.modules.auth.dto.RegisterRequest;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.exception.AuthExceptionHandler;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
@@ -17,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -35,11 +41,12 @@ class AuthControllerTest {
     private AuthService authService;
 
     private MockMvc mockMvc;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         AuthController authController = new AuthController(authService);
-        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        objectMapper = new ObjectMapper().findAndRegisterModules();
         AuthExceptionHandler exceptionHandler = new AuthExceptionHandler(new AuthErrorHandlingService(objectMapper));
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
@@ -55,12 +62,7 @@ class AuthControllerTest {
         when(authService.login(any(), anyString()))
                 .thenReturn(new AuthResponse("access-token", "refresh-token"));
 
-        String payload = """
-                {
-                  "email": "user@test.com",
-                  "password": "secret123"
-                }
-                """;
+        String payload = toJson(new LoginRequest(sampleEmail(), sampleValidPassword()));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,14 +79,12 @@ class AuthControllerTest {
         when(authService.register(any(), anyString()))
                 .thenThrow(new AuthException(HttpStatus.CONFLICT, "Email already registered"));
 
-        String payload = """
-                {
-                  "username": "user",
-                  "email": "user@test.com",
-                  "password": "abc123",
-                  "cityId": 1
-                }
-                """;
+        String payload = toJson(new RegisterRequest(
+                "user",
+                sampleEmail(),
+                sampleValidPassword(),
+                1L
+        ));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -98,11 +98,7 @@ class AuthControllerTest {
         when(authService.refreshToken(anyString(), anyString()))
                 .thenReturn(new AuthResponse("new-access", "new-refresh"));
 
-        String payload = """
-                {
-                  "refreshToken": "old-refresh"
-                }
-                """;
+        String payload = toJson(new RefreshTokenRequest("old-refresh"));
 
         mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -119,11 +115,7 @@ class AuthControllerTest {
         when(authService.logout(any(), any(), anyString()))
                 .thenReturn(new AuthMessageResponse("Logout successful"));
 
-        String payload = """
-                {
-                  "refreshToken": "refresh-1"
-                }
-                """;
+        String payload = toJson(new LogoutRequest("refresh-1"));
 
         mockMvc.perform(post("/api/auth/logout")
                         .header("Authorization", "Bearer access-1")
@@ -137,14 +129,12 @@ class AuthControllerTest {
 
     @Test
     void registerShouldReturnBadRequestWhenPasswordIsInvalid() throws Exception {
-        String payload = """
-                {
-                  "username": "user",
-                  "email": "user@test.com",
-                  "password": "123",
-                  "cityId": 1
-                }
-                """;
+        String payload = toJson(new RegisterRequest(
+                "user",
+                sampleEmail(),
+                "x1",
+                1L
+        ));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -157,14 +147,12 @@ class AuthControllerTest {
 
     @Test
     void registerShouldReturnBadRequestWhenCityIdIsNull() throws Exception {
-        String payload = """
-                {
-                  "username": "user",
-                  "email": "user@test.com",
-                  "password": "abc123",
-                  "cityId": null
-                }
-                """;
+        String payload = toJson(new RegisterRequest(
+                "user",
+                sampleEmail(),
+                sampleValidPassword(),
+                null
+        ));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -177,11 +165,7 @@ class AuthControllerTest {
 
     @Test
     void refreshShouldReturnBadRequestWhenRefreshTokenIsBlank() throws Exception {
-        String payload = """
-                {
-                  "refreshToken": ""
-                }
-                """;
+        String payload = toJson(new RefreshTokenRequest(""));
 
         mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -190,5 +174,17 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message", containsString("refreshToken")));
 
         verifyNoInteractions(authService);
+    }
+
+    private String toJson(Object request) throws Exception {
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private String sampleEmail() {
+        return "tester+" + UUID.randomUUID() + "@example.test";
+    }
+
+    private String sampleValidPassword() {
+        return "A1" + UUID.randomUUID().toString().replace("-", "");
     }
 }

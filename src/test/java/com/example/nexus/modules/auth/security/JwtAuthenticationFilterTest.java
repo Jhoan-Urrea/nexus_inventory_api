@@ -17,6 +17,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.verify;
@@ -92,15 +94,16 @@ class JwtAuthenticationFilterTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "Bearer valid-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
+        String blockedEmail = "blocked+" + UUID.randomUUID() + "@example.test";
 
-        UserDetails user = User.withUsername("blocked@test.com")
-                .password("encoded-password")
+        UserDetails user = User.withUsername(blockedEmail)
+                .password("hash-" + UUID.randomUUID())
                 .authorities("ROLE_USER")
                 .build();
 
         when(tokenLifecycleService.isAccessTokenRevoked("valid-token")).thenReturn(false);
-        when(jwtService.extractUsername("valid-token")).thenReturn("blocked@test.com");
-        when(userDetailsService.loadUserByUsername("blocked@test.com")).thenReturn(user);
+        when(jwtService.extractUsername("valid-token")).thenReturn(blockedEmail);
+        when(userDetailsService.loadUserByUsername(blockedEmail)).thenReturn(user);
         when(jwtService.isTokenValid("valid-token", user)).thenReturn(true);
 
         org.mockito.Mockito.doThrow(new LockedException("Locked"))
@@ -118,20 +121,21 @@ class JwtAuthenticationFilterTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "Bearer valid-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
+        String activeEmail = "active+" + UUID.randomUUID() + "@example.test";
 
-        UserDetails activeUser = User.withUsername("active@test.com")
-                .password("encoded-password")
+        UserDetails activeUser = User.withUsername(activeEmail)
+                .password("hash-" + UUID.randomUUID())
                 .authorities("ROLE_USER")
                 .build();
 
         when(tokenLifecycleService.isAccessTokenRevoked("valid-token")).thenReturn(false);
-        when(jwtService.extractUsername("valid-token")).thenReturn("active@test.com");
-        when(userDetailsService.loadUserByUsername("active@test.com")).thenReturn(activeUser);
+        when(jwtService.extractUsername("valid-token")).thenReturn(activeEmail);
+        when(userDetailsService.loadUserByUsername(activeEmail)).thenReturn(activeUser);
         when(jwtService.isTokenValid("valid-token", activeUser)).thenReturn(true);
 
         filter.doFilter(request, response, filterChain);
 
-        assertEquals("active@test.com", SecurityContextHolder.getContext().getAuthentication().getName());
+        assertEquals(activeEmail, SecurityContextHolder.getContext().getAuthentication().getName());
         verify(accountStateService).assertCanAuthenticate(activeUser);
         verify(filterChain).doFilter(request, response);
     }
