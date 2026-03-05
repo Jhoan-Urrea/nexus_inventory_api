@@ -1,80 +1,115 @@
 package com.example.nexus.modules.auth.service;
 
+import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.LoginRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.mapper.AuthMapper;
-import com.example.nexus.modules.auth.security.JwtService;
 import com.example.nexus.modules.user.entity.AppUser;
-import com.example.nexus.modules.user.entity.UserStatus;
 import com.example.nexus.modules.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
     private final AuthMapper authMapper;
+    private final AuthRegistrationValidationService authRegistrationValidationService;
+    private final AppUserRepository appUserRepository;
+    private final TokenLifecycleService tokenLifecycleService;
+    private final AccountStateService accountStateService;
+    private final LoginAttemptService loginAttemptService;
+    private final PasswordRecoveryService passwordRecoveryService;
+    private final AuthAuditService authAuditService;
 
     @Override
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, String ipAddress) {
+        loginAttemptService.checkAllowed(request.email(), ipAddress);
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.email(),
-                        request.password()
-                )
-        );
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.email(), request.password())
+            );
 
-        AppUser user = appUserRepository.findByEmail(request.email())
-                .orElseThrow(() -> new AuthException("Invalid credentials"));
+            Object principal = authentication.getPrincipal();
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new AuthException("User is not active");
+            if (!(principal instanceof UserDetails userDetails)) {
+                throw new AuthException(HttpStatus.UNAUTHORIZED, "Unable to authenticate user");
+            }
+
+            accountStateService.assertCanAuthenticate(userDetails);
+            loginAttemptService.onLoginSuccess(request.email(), ipAddress);
+
+            authAuditService.audit(AuthAuditEventType.LOGIN_SUCCESS, request.email(), ipAddress, "Login successful");
+
+            return tokenLifecycleService.issueTokens(userDetails);
+        } catch (AuthenticationException ex) {
+            loginAttemptService.onLoginFailure(request.email(), ipAddress);
+            authAuditService.audit(AuthAuditEventType.LOGIN_FAILED, request.email(), ipAddress, ex.getMessage());
+            throw ex;
         }
-
-        String token = jwtService.generateToken(
-                User.withUsername(user.getEmail())
-                        .password(user.getPassword())
-                        .authorities(Collections.emptyList())
-                        .build()
-        );
-
-        return new AuthResponse(token);
     }
 
     @Override
-    public AuthResponse register(RegisterRequest request) {
-
-        if (appUserRepository.existsByEmail(request.email())) {
-            throw new AuthException("Email already registered");
-        }
+    public AuthResponse register(RegisterRequest request, String ipAddress) {
+        AuthRegistrationValidationService.RegistrationContext validation = authRegistrationValidationService.validate(request);
 
         AppUser user = authMapper.toEntity(request);
-
         user.setPassword(passwordEncoder.encode(request.password()));
+        user.setCity(validation.city());
+        user.setRoles(Set.of(validation.defaultRole()));
 
         AppUser savedUser = appUserRepository.save(user);
 
-        String token = jwtService.generateToken(
-                User.withUsername(savedUser.getEmail())
-                        .password(savedUser.getPassword())
-                        .authorities(Collections.emptyList())
-                        .build()
-        );
+        authAuditService.audit(AuthAuditEventType.REGISTER_SUCCESS, savedUser.getEmail(), ipAddress, "User registered");
 
-        return new AuthResponse(token);
+        return tokenLifecycleService.issueTokens(buildUserDetails(savedUser));
+    }
+
+    @Override
+    public AuthResponse refreshToken(String refreshToken, String ipAddress) {
+        return tokenLifecycleService.refreshToken(refreshToken, ipAddress);
+    }
+
+    @Override
+    public AuthMessageResponse logout(String accessToken, String refreshToken, String ipAddress) {
+        tokenLifecycleService.logout(accessToken, refreshToken, ipAddress);
+        return new AuthMessageResponse("Logout successful");
+    }
+
+    @Override
+    public AuthMessageResponse forgotPassword(String email, String ipAddress) {
+        return passwordRecoveryService.forgotPassword(email, ipAddress);
+    }
+
+    @Override
+    public AuthMessageResponse resetPassword(String token, String newPassword, String ipAddress) {
+        return passwordRecoveryService.resetPassword(token, newPassword, ipAddress);
+    }
+
+    private UserDetails buildUserDetails(AppUser user) {
+        String[] authorities = user.getRoles().stream()
+                .map(role -> "ROLE_" + role.getName())
+                .toArray(String[]::new);
+
+        return User.withUsername(user.getEmail())
+                .password(user.getPassword())
+                .authorities(authorities)
+                .build();
     }
 }
