@@ -10,5 +10,6 @@ public interface UserMapper {
 
     @Mapping(target = "roles", expression = "java(user.getRoles().stream().map(r -> r.getName()).collect(java.util.stream.Collectors.toSet()))")
     @Mapping(target = "status", expression = "java(user.getStatus().name())")
+    @Mapping(target = "clientId", expression = "java(user.getClient() != null ? user.getClient().getId() : null)")
     UserResponse toResponse(AppUser user);
 }

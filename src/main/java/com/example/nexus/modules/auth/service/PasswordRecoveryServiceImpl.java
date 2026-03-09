@@ -54,8 +54,8 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
 
             passwordResetTokenRepository.save(token);
 
-            // Development trace while email integration is pending.
-            log.info("Password reset token generated for {}: {}", email, tokenValue);
+            // Keep logs free of secrets.
+            log.info("Password reset token generated for {}", email);
         });
 
         authAuditService.audit(AuthAuditEventType.PASSWORD_FORGOT, email, ipAddress, "Password recovery requested");
