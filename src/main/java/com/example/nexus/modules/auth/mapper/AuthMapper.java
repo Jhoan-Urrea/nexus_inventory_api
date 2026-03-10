@@ -11,6 +11,7 @@ public interface AuthMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "city", ignore = true)
+    @Mapping(target = "client", ignore = true)
     @Mapping(target = "status", expression = "java(com.example.nexus.modules.user.entity.UserStatus.ACTIVE)")
     AppUser toEntity(RegisterRequest request);
 }

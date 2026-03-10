@@ -7,5 +7,6 @@ public record UserResponse(
         String username,
         String email,
         String status,
-        Set<String> roles
+        Set<String> roles,
+        Long clientId
 ) {} 

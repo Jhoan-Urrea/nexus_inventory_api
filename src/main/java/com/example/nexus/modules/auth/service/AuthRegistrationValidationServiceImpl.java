@@ -32,6 +32,10 @@ public class AuthRegistrationValidationServiceImpl implements AuthRegistrationVa
             throw new AuthException(HttpStatus.CONFLICT, "Email already registered");
         }
 
+        if (appUserRepository.existsByUsername(request.username())) {
+            throw new AuthException(HttpStatus.CONFLICT, "Username already registered");
+        }
+
         validatePasswordPolicy(request.password());
 
         City city = cityRepository.findById(request.cityId())

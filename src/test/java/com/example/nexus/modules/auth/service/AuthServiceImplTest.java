@@ -2,10 +2,13 @@ package com.example.nexus.modules.auth.service;
 
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
+import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
+import com.example.nexus.modules.auth.entity.RefreshToken;
 import com.example.nexus.modules.auth.mapper.AuthMapper;
+import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.entity.Role;
@@ -23,12 +26,15 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +55,9 @@ class AuthServiceImplTest {
 
     @Mock
     private com.example.nexus.modules.user.repository.AppUserRepository appUserRepository;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
     private TokenLifecycleService tokenLifecycleService;
@@ -168,6 +177,38 @@ class AuthServiceImplTest {
         AuthMessageResponse response = authService.forgotPassword(email, "127.0.0.1");
 
         assertEquals("ok", response.message());
+    }
+
+    @Test
+    void changePasswordShouldUpdatePasswordAndRevokeActiveTokens() {
+        String email = sampleEmail();
+        AppUser user = AppUser.builder()
+                .id(7L)
+                .email(email)
+                .password(sampleHash())
+                .build();
+        ChangePasswordRequest request = new ChangePasswordRequest(samplePassword(), samplePassword());
+        RefreshToken refreshToken = RefreshToken.builder()
+                .id(11L)
+                .email(email)
+                .token("refresh-token")
+                .expiresAt(Instant.now().plusSeconds(300))
+                .revoked(false)
+                .build();
+
+        when(appUserRepository.findByEmail(email)).thenReturn(java.util.Optional.of(user));
+        when(passwordEncoder.matches(request.currentPassword(), user.getPassword())).thenReturn(true);
+        when(passwordEncoder.encode(request.newPassword())).thenReturn(sampleHash());
+        when(refreshTokenRepository.findByEmailAndRevokedFalse(email)).thenReturn(List.of(refreshToken));
+
+        AuthMessageResponse response = authService.changePassword(email, request, "127.0.0.1");
+
+        assertEquals("Password updated successfully", response.message());
+        assertEquals(true, refreshToken.isRevoked());
+
+        verify(appUserRepository).save(user);
+        verify(refreshTokenRepository).saveAll(List.of(refreshToken));
+        verify(authAuditService).audit(AuthAuditEventType.PASSWORD_CHANGED, email, "127.0.0.1", "Password changed");
     }
 
     private String sampleEmail() {
