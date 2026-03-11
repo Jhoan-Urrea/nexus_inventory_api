@@ -2,11 +2,14 @@ package com.example.nexus.modules.auth.service;
 
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
+import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
+import com.example.nexus.modules.auth.entity.RefreshToken;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.mapper.AuthMapper;
+import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,17 +23,23 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+
+    private static final Pattern PASSWORD_LETTER_PATTERN = Pattern.compile(".*[A-Za-z].*");
+    private static final Pattern PASSWORD_DIGIT_PATTERN = Pattern.compile(".*\\d.*");
 
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
     private final AuthMapper authMapper;
     private final AuthRegistrationValidationService authRegistrationValidationService;
     private final AppUserRepository appUserRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final TokenLifecycleService tokenLifecycleService;
     private final AccountStateService accountStateService;
     private final LoginAttemptService loginAttemptService;
@@ -102,6 +111,26 @@ public class AuthServiceImpl implements AuthService {
         return passwordRecoveryService.resetPassword(token, newPassword, ipAddress);
     }
 
+    @Override
+    public AuthMessageResponse changePassword(String email, ChangePasswordRequest request, String ipAddress) {
+        AppUser user = appUserRepository.findByEmail(email)
+                .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+
+        validatePasswordPolicy(request.newPassword());
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        appUserRepository.save(user);
+
+        revokeActiveRefreshTokens(user.getEmail());
+        authAuditService.audit(AuthAuditEventType.PASSWORD_CHANGED, user.getEmail(), ipAddress, "Password changed");
+
+        return new AuthMessageResponse("Password updated successfully");
+    }
+
     private UserDetails buildUserDetails(AppUser user) {
         String[] authorities = user.getRoles().stream()
                 .map(role -> "ROLE_" + role.getName())
@@ -111,5 +140,26 @@ public class AuthServiceImpl implements AuthService {
                 .password(user.getPassword())
                 .authorities(authorities)
                 .build();
+    }
+
+    private void revokeActiveRefreshTokens(String email) {
+        List<RefreshToken> tokens = refreshTokenRepository.findByEmailAndRevokedFalse(email);
+
+        for (RefreshToken token : tokens) {
+            token.setRevoked(true);
+        }
+
+        refreshTokenRepository.saveAll(tokens);
+    }
+
+    private void validatePasswordPolicy(String password) {
+        if (password == null || password.length() < 6) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters long");
+        }
+
+        if (!PASSWORD_LETTER_PATTERN.matcher(password).matches()
+                || !PASSWORD_DIGIT_PATTERN.matcher(password).matches()) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include letters and numbers");
+        }
     }
 }

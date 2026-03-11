@@ -18,4 +18,3 @@ public interface WarehouseService {
 
     void deleteWarehouse(Long id);
 }
-

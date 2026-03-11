@@ -3,6 +3,7 @@ package com.example.nexus.modules.user.service;
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.location.repository.CityRepository;
 import com.example.nexus.modules.user.dto.CreateUserRequest;
+import com.example.nexus.modules.user.dto.UpdateUserRequest;
 import com.example.nexus.modules.user.dto.UserResponse;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.entity.Client;
@@ -42,11 +43,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<UserResponse> findUsersByClientId(Long clientId) {
-        return userRepository.findByClientId(clientId)
-                .stream()
+    public UserResponse findUserById(Long id) {
+        return userRepository.findById(id)
                 .map(userMapper::toResponse)
-                .toList();
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     @Override
@@ -57,18 +57,26 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public List<UserResponse> findUsersByClientId(Long clientId) {
+        return userRepository.findByClientId(clientId)
+                .stream()
+                .map(userMapper::toResponse)
+                .toList();
+    }
+
+    @Override
     public UserResponse createUser(CreateUserRequest request) {
+
         if (userRepository.existsByEmail(request.email())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
-        City city = cityRepository.findById(request.cityId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "City not found"));
+        if (userRepository.existsByUsername(request.username())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already registered");
+        }
 
-        Set<Role> roles = request.roles().stream()
-                .map(roleName -> roleRepository.findByName(roleName)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + roleName)))
-                .collect(Collectors.toSet());
+        City city = loadCity(request.cityId());
+        Set<Role> roles = resolveRoles(request.roles());
 
         AppUser user = AppUser.builder()
                 .username(request.username())
@@ -79,13 +87,68 @@ public class UserServiceImpl implements UserService {
                 .roles(roles)
                 .build();
 
-        if (request.clientId() != null) {
-            Client client = clientRepository.findById(request.clientId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Client not found"));
-            user.setClient(client);
+        user.setClient(resolveClient(request.clientId()));
+
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Override
+    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (userRepository.existsByUsernameAndIdNot(request.username(), id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already registered");
         }
 
-        AppUser savedUser = userRepository.save(user);
-        return userMapper.toResponse(savedUser);
+        userRepository.findByEmail(request.email())
+                .filter(existing -> !existing.getId().equals(id))
+                .ifPresent(existing -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+                });
+
+        user.setUsername(request.username());
+        user.setEmail(request.email());
+        user.setCity(loadCity(request.cityId()));
+        user.setClient(resolveClient(request.clientId()));
+        user.setRoles(resolveRoles(request.roles()));
+        user.setStatus(request.status());
+
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Override
+    public void deleteUser(Long id) {
+
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        userRepository.delete(user);
+    }
+
+    private City loadCity(Long cityId) {
+        return cityRepository.findById(cityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "City not found"));
+    }
+
+    private Client resolveClient(Long clientId) {
+        if (clientId == null) {
+            return null;
+        }
+
+        return clientRepository.findById(clientId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Client not found"));
+    }
+
+    private Set<Role> resolveRoles(Set<String> roleNames) {
+
+        return roleNames.stream()
+                .map(roleName -> roleRepository.findByName(roleName)
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Role not found: " + roleName
+                        )))
+                .collect(Collectors.toSet());
     }
 }

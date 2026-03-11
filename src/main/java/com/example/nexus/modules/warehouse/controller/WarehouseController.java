@@ -21,7 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/warehouses")
 @RequiredArgsConstructor
-@Tag(name = "Warehouses", description = "Gestión de bodegas")
+@Tag(name = "Warehouses", description = "Gestión de bodegas/almacenes")
 @SecurityRequirement(name = "bearerAuth")
 public class WarehouseController {
 
@@ -59,7 +59,10 @@ public class WarehouseController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Actualizar bodega")
-    public ResponseEntity<WarehouseResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateWarehouseRequest request) {
+    public ResponseEntity<WarehouseResponse> update(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateWarehouseRequest request) {
+
         WarehouseResponse response = warehouseService.updateWarehouse(id, request);
         return ResponseEntity.ok(response);
     }

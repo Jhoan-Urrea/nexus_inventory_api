@@ -12,7 +12,11 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
 
     boolean existsByName(String name);
 
+    boolean existsByNameAndIdNot(String name, Long id);
+
     Optional<Warehouse> findByName(String name);
 
     List<Warehouse> findByActive(Boolean active);
+
+    List<Warehouse> findAllByOrderByNameAsc();
 }

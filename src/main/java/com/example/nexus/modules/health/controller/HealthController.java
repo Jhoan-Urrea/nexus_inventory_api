@@ -13,11 +13,11 @@ import java.time.Instant;
 
 @RestController
 @RequestMapping("/api")
-@Tag(name = "Health", description = "Estado de salud del servicio")
+@Tag(name = "Health", description = "Endpoints para verificar el estado de la API")
 public class HealthController {
 
     @GetMapping("/health")
-    @Operation(summary = "Health check")
+    @Operation(summary = "Obtiene el estado de la API")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Servicio activo")
     })

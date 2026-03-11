@@ -10,12 +10,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Tag(name = "Auth", description = "Autenticación y recuperación de contraseña")
+@Tag(name = "Authentication", description = "Endpoints para login, registro, tokens y recuperación de contraseña")
 public class AuthController {
 
     private final AuthService authService;
@@ -24,7 +26,7 @@ public class AuthController {
     private boolean trustForwardedHeaders;
 
     @PostMapping("/login")
-    @Operation(summary = "Iniciar sesión")
+    @Operation(summary = "Iniciar sesión y obtener JWT + refresh token")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Autenticado"),
             @ApiResponse(responseCode = "401", description = "Credenciales inválidas"),
@@ -35,7 +37,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @Operation(summary = "Registrar usuario")
+    @Operation(summary = "Registrar un nuevo usuario")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usuario registrado"),
             @ApiResponse(responseCode = "400", description = "Datos inválidos"),
@@ -46,7 +48,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    @Operation(summary = "Refrescar token")
+    @Operation(summary = "Refrescar JWT usando refresh token")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Token renovado"),
             @ApiResponse(responseCode = "400", description = "Refresh token inválido"),
@@ -57,7 +59,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Cerrar sesión")
+    @Operation(summary = "Cerrar sesión y revocar tokens")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Sesión cerrada")
     })
@@ -67,13 +69,13 @@ public class AuthController {
             HttpServletRequest httpRequest
     ) {
         String accessToken = extractBearerToken(authorization);
-        String refreshToken = request == null ? null : request.refreshToken();
+        String refreshToken = request != null ? request.refreshToken() : null;
 
         return authService.logout(accessToken, refreshToken, resolveClientIp(httpRequest));
     }
 
     @PostMapping("/password/forgot")
-    @Operation(summary = "Solicitar recuperación de contraseña")
+    @Operation(summary = "Solicitar recuperación de contraseña por email")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Solicitud procesada")
     })
@@ -85,7 +87,7 @@ public class AuthController {
     }
 
     @PostMapping("/password/reset")
-    @Operation(summary = "Restablecer contraseña")
+    @Operation(summary = "Resetear contraseña usando token enviado por email")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Contraseña actualizada"),
             @ApiResponse(responseCode = "400", description = "Token o contraseña inválidos")
@@ -95,6 +97,17 @@ public class AuthController {
             HttpServletRequest httpRequest
     ) {
         return authService.resetPassword(request.token(), request.newPassword(), resolveClientIp(httpRequest));
+    }
+
+    @PostMapping("/password/change")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Cambiar contraseña del usuario autenticado")
+    public AuthMessageResponse changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        return authService.changePassword(authentication.getName(), request, resolveClientIp(httpRequest));
     }
 
     private String extractBearerToken(String authorizationHeader) {

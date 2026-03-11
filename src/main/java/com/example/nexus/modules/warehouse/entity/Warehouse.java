@@ -1,46 +1,30 @@
-package com.example.nexus.modules.warehouse.entity;
+package com.example.nexus.modules.warehouse.dto;
 
-import com.example.nexus.modules.location.entity.City;
-import jakarta.persistence.*;
-import lombok.*;
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "warehouse")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class Warehouse {
+public record WarehouseResponse(
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+        Long id,
 
-    @Column(nullable = false)
-    private String name;
+        String name,
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+        String description,
 
-    private Integer capacity;
+        BigDecimal capacity,
 
-    @Column(name = "available_capacity_m2", nullable = false)
-    private Integer availableCapacityM2;
+        BigDecimal availableCapacityM2,
 
-    @Column(name = "total_capacity_m2", nullable = false)
-    private Integer totalCapacityM2;
+        BigDecimal totalCapacityM2,
 
-    private String location;
+        String location,
 
-    private Boolean active;
+        Boolean active,
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "city_id", nullable = false)
-    private City city;
+        Long cityId,
 
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+        String cityName,
+
+        LocalDateTime createdAt
+) {
 }

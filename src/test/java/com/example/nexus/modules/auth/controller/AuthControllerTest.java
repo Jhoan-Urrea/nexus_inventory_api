@@ -2,6 +2,7 @@ package com.example.nexus.modules.auth.controller;
 
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
+import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
 import com.example.nexus.modules.auth.dto.LogoutRequest;
 import com.example.nexus.modules.auth.dto.RefreshTokenRequest;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -174,6 +176,23 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message", containsString("refreshToken")));
 
         verifyNoInteractions(authService);
+    }
+
+    @Test
+    void changePasswordShouldDelegateToService() throws Exception {
+        when(authService.changePassword(anyString(), any(), anyString()))
+                .thenReturn(new AuthMessageResponse("Password updated successfully"));
+
+        String payload = toJson(new ChangePasswordRequest(sampleValidPassword(), sampleValidPassword()));
+
+        mockMvc.perform(post("/api/auth/password/change")
+                        .principal(new UsernamePasswordAuthenticationToken(sampleEmail(), "n/a"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Password updated successfully"));
+
+        verify(authService).changePassword(anyString(), any(), anyString());
     }
 
     private String toJson(Object request) throws Exception {
