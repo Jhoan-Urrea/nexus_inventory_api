@@ -24,11 +24,14 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     public WarehouseResponse createWarehouse(CreateWarehouseRequest request) {
+
         if (warehouseRepository.existsByName(request.name())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Warehouse with this name already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Warehouse with this name already exists");
         }
 
         City city = loadCity(request.cityId());
+
         BigDecimal totalCapacity = request.totalCapacityM2();
 
         Warehouse warehouse = Warehouse.builder()
@@ -55,18 +58,23 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     public WarehouseResponse getWarehouseById(Long id) {
+
         return warehouseRepository.findById(id)
                 .map(this::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
     }
 
     @Override
     public WarehouseResponse updateWarehouse(Long id, UpdateWarehouseRequest request) {
+
         Warehouse warehouse = warehouseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
 
         if (warehouseRepository.existsByNameAndIdNot(request.name(), id)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Warehouse with this name already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Warehouse with this name already exists");
         }
 
         warehouse.setName(request.name());
@@ -92,17 +100,23 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     public void deleteWarehouse(Long id) {
+
         Warehouse warehouse = warehouseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
+
         warehouseRepository.delete(warehouse);
     }
 
     private City loadCity(Long cityId) {
+
         return cityRepository.findById(cityId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "City not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.BAD_REQUEST, "City not found"));
     }
 
     private WarehouseResponse toResponse(Warehouse warehouse) {
+
         return new WarehouseResponse(
                 warehouse.getId(),
                 warehouse.getName(),

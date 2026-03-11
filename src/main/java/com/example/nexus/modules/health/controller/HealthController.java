@@ -2,6 +2,8 @@ package com.example.nexus.modules.health.controller;
 
 import com.example.nexus.modules.health.dto.HealthResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +18,9 @@ public class HealthController {
 
     @GetMapping("/health")
     @Operation(summary = "Obtiene el estado de la API")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Servicio activo")
+    })
     public HealthResponse health() {
         return new HealthResponse("UP", Instant.now());
     }

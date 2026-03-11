@@ -40,10 +40,17 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         }
 
         try {
-            appUserRepository.findByEmail(email).ifPresent(user -> createTokenAndSendEmail(user));
+            appUserRepository.findByEmail(email)
+                    .ifPresent(this::createTokenAndSendEmail);
+
             return new AuthMessageResponse("If the email exists, recovery instructions were generated");
         } finally {
-            authAuditService.audit(AuthAuditEventType.PASSWORD_FORGOT, email, ipAddress, "Password recovery requested");
+            authAuditService.audit(
+                    AuthAuditEventType.PASSWORD_FORGOT,
+                    email,
+                    ipAddress,
+                    "Password recovery requested"
+            );
         }
     }
 

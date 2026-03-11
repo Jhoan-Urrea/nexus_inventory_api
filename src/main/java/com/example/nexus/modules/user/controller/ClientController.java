@@ -7,6 +7,9 @@ import com.example.nexus.modules.user.dto.UserResponse;
 import com.example.nexus.modules.user.service.ClientService;
 import com.example.nexus.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,9 +22,9 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/clients")
-@Tag(name = "Clients", description = "Gestión de clientes")
-
 @RequiredArgsConstructor
+@Tag(name = "Clients", description = "Gestión de clientes y sus usuarios")
+@SecurityRequirement(name = "bearerAuth")
 public class ClientController {
 
     private final ClientService clientService;
@@ -45,13 +48,16 @@ public class ClientController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
     public ResponseEntity<ClientResponse> createClient(@Valid @RequestBody CreateClientRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(clientService.createClient(request));
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(clientService.createClient(request));
     }
 
     @Operation(summary = "Actualizar cliente")
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
-    public ClientResponse updateClient(@PathVariable Long id, @Valid @RequestBody UpdateClientRequest request) {
+    public ClientResponse updateClient(@PathVariable Long id,
+                                       @Valid @RequestBody UpdateClientRequest request) {
         return clientService.updateClient(id, request);
     }
 
@@ -63,7 +69,15 @@ public class ClientController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Listar usuarios de un cliente")
+    @Operation(
+            summary = "Listar usuarios de un cliente",
+            description = "Retorna los usuarios asociados a un cliente"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuarios del cliente"),
+            @ApiResponse(responseCode = "401", description = "No autenticado"),
+            @ApiResponse(responseCode = "403", description = "Sin permisos")
+    })
     @GetMapping("/{clientId}/users")
     @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
     public List<UserResponse> getUsersByClient(@PathVariable Long clientId) {

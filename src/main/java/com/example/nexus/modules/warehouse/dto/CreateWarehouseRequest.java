@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 
 public record CreateWarehouseRequest(
+
         @NotBlank
         String name,
 

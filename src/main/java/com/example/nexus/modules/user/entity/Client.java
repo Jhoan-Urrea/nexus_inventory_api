@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "client")
@@ -48,4 +50,15 @@ public class Client {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "client", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = false)
+    @Builder.Default
+    private List<AppUser> users = new ArrayList<>();
+
+    @PreRemove
+    private void unlinkUsersBeforeRemove() {
+        for (AppUser user : users) {
+            user.setClient(null);
+        }
+    }
 }

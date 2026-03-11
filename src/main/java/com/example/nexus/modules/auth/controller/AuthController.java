@@ -3,55 +3,82 @@ package com.example.nexus.modules.auth.controller;
 import com.example.nexus.modules.auth.dto.*;
 import com.example.nexus.modules.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@Tag(name = "Authentication", description = "Endpoints para login, registro, tokens y recuperación de contraseña")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Endpoints para login, registro, tokens y recuperación de contraseña")
 public class AuthController {
 
     private final AuthService authService;
 
-    @Operation(summary = "Iniciar sesión y obtener JWT + refresh token")
+    @Value("${app.security.trust-forwarded-headers:false}")
+    private boolean trustForwardedHeaders;
+
     @PostMapping("/login")
+    @Operation(summary = "Iniciar sesión y obtener JWT + refresh token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Autenticado"),
+            @ApiResponse(responseCode = "401", description = "Credenciales inválidas"),
+            @ApiResponse(responseCode = "429", description = "Demasiados intentos")
+    })
     public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         return authService.login(request, resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Registrar un nuevo usuario")
     @PostMapping("/register")
+    @Operation(summary = "Registrar un nuevo usuario")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuario registrado"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos"),
+            @ApiResponse(responseCode = "409", description = "Email ya registrado")
+    })
     public AuthResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
         return authService.register(request, resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Refrescar JWT usando refresh token")
     @PostMapping("/refresh")
+    @Operation(summary = "Refrescar JWT usando refresh token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token renovado"),
+            @ApiResponse(responseCode = "400", description = "Refresh token inválido"),
+            @ApiResponse(responseCode = "401", description = "No autorizado")
+    })
     public AuthResponse refreshToken(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
         return authService.refreshToken(request.refreshToken(), resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Cerrar sesión y revocar tokens")
     @PostMapping("/logout")
+    @Operation(summary = "Cerrar sesión y revocar tokens")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sesión cerrada")
+    })
     public AuthMessageResponse logout(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody(required = false) LogoutRequest request,
             HttpServletRequest httpRequest
     ) {
         String accessToken = extractBearerToken(authorization);
-        String refreshToken = request == null ? null : request.refreshToken();
+        String refreshToken = request != null ? request.refreshToken() : null;
 
         return authService.logout(accessToken, refreshToken, resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Solicitar recuperación de contraseña por email")
     @PostMapping("/password/forgot")
+    @Operation(summary = "Solicitar recuperación de contraseña por email")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Solicitud procesada")
+    })
     public AuthMessageResponse forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest
@@ -59,8 +86,12 @@ public class AuthController {
         return authService.forgotPassword(request.email(), resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Resetear contraseña usando token enviado por email")
     @PostMapping("/password/reset")
+    @Operation(summary = "Resetear contraseña usando token enviado por email")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Contraseña actualizada"),
+            @ApiResponse(responseCode = "400", description = "Token o contraseña inválidos")
+    })
     public AuthMessageResponse resetPassword(
             @Valid @RequestBody ResetPasswordRequest request,
             HttpServletRequest httpRequest
@@ -68,9 +99,9 @@ public class AuthController {
         return authService.resetPassword(request.token(), request.newPassword(), resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Cambiar contraseña del usuario autenticado")
     @PostMapping("/password/change")
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Cambiar contraseña del usuario autenticado")
     public AuthMessageResponse changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             Authentication authentication,
@@ -87,9 +118,11 @@ public class AuthController {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            return forwardedFor.split(",")[0].trim();
+        if (trustForwardedHeaders) {
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                return forwardedFor.split(",")[0].trim();
+            }
         }
         return request.getRemoteAddr();
     }
