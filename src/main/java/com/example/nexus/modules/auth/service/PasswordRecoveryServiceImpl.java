@@ -8,7 +8,6 @@ import com.example.nexus.modules.auth.repository.PasswordResetTokenRepository;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,7 +19,6 @@ import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
 
     private static final Pattern PASSWORD_LETTER_PATTERN = Pattern.compile(".*[A-Za-z].*");
@@ -31,6 +29,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
 
     private final AppUserRepository appUserRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final PasswordRecoveryEmailService passwordRecoveryEmailService;
     private final PasswordEncoder passwordEncoder;
     private final AuthAuditService authAuditService;
 
@@ -40,27 +39,12 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
             throw new AuthException(HttpStatus.BAD_REQUEST, "Email is required");
         }
 
-        appUserRepository.findByEmail(email).ifPresent(user -> {
-            passwordResetTokenRepository.deleteByEmail(email);
-
-            String tokenValue = UUID.randomUUID() + "." + UUID.randomUUID();
-
-            PasswordResetToken token = PasswordResetToken.builder()
-                    .token(tokenValue)
-                    .email(email)
-                    .expiresAt(Instant.now().plusMillis(passwordResetExpiration))
-                    .used(false)
-                    .build();
-
-            passwordResetTokenRepository.save(token);
-
-            // Development trace while email integration is pending.
-            log.info("Password reset token generated for {}: {}", email, tokenValue);
-        });
-
-        authAuditService.audit(AuthAuditEventType.PASSWORD_FORGOT, email, ipAddress, "Password recovery requested");
-
-        return new AuthMessageResponse("If the email exists, recovery instructions were generated");
+        try {
+            appUserRepository.findByEmail(email).ifPresent(user -> createTokenAndSendEmail(user));
+            return new AuthMessageResponse("If the email exists, recovery instructions were generated");
+        } finally {
+            authAuditService.audit(AuthAuditEventType.PASSWORD_FORGOT, email, ipAddress, "Password recovery requested");
+        }
     }
 
     @Override
@@ -102,6 +86,30 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         if (!PASSWORD_LETTER_PATTERN.matcher(password).matches()
                 || !PASSWORD_DIGIT_PATTERN.matcher(password).matches()) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include letters and numbers");
+        }
+    }
+
+    private void createTokenAndSendEmail(AppUser user) {
+        String email = user.getEmail();
+
+        passwordResetTokenRepository.deleteByEmail(email);
+
+        String tokenValue = UUID.randomUUID() + "." + UUID.randomUUID();
+
+        PasswordResetToken token = PasswordResetToken.builder()
+                .token(tokenValue)
+                .email(email)
+                .expiresAt(Instant.now().plusMillis(passwordResetExpiration))
+                .used(false)
+                .build();
+
+        passwordResetTokenRepository.save(token);
+
+        try {
+            passwordRecoveryEmailService.sendPasswordResetEmail(email, tokenValue);
+        } catch (RuntimeException ex) {
+            passwordResetTokenRepository.deleteByEmail(email);
+            throw ex;
         }
     }
 }
