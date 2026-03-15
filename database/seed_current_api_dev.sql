@@ -7,7 +7,9 @@ BEGIN;
 INSERT INTO role (name, description)
 VALUES
     ('ADMIN', 'Platform administrator'),
-    ('USER', 'Standard authenticated user'),
+    ('WAREHOUSE_EMPLOYEE', 'Warehouse operational user'),
+    ('WAREHOUSE_SUPERVISOR', 'Warehouse supervisor user'),
+    ('USER', 'Standard authenticated user (legacy)'),
     ('SALES_AGENT', 'Commercial user'),
     ('CLIENT', 'Client role')
 ON CONFLICT (name) DO NOTHING;

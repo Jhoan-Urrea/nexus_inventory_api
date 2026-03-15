@@ -31,27 +31,27 @@ public class UserController {
 
     private final UserService userService;
 
-    @Operation(summary = "Listar todos los usuarios")
+    @Operation(summary = "Listar todos los usuarios", description = "Roles permitidos: ADMIN")
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserResponse> getAllUsers() {
         return userService.findAllUsers();
     }
 
-    @Operation(summary = "Obtener usuario por ID")
+    @Operation(summary = "Obtener usuario por ID", description = "Roles permitidos: ADMIN")
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponse getUserById(@PathVariable Long id) {
         return userService.findUserById(id);
     }
 
-    @Operation(summary = "Obtener usuario autenticado")
+    @Operation(summary = "Obtener usuario autenticado", description = "Requiere autenticación JWT")
     @GetMapping("/me")
     public UserResponse getCurrentUser(Authentication authentication) {
         return userService.findCurrentUserByEmail(authentication.getName());
     }
 
-    @Operation(summary = "Crear un nuevo usuario")
+    @Operation(summary = "Crear un nuevo usuario", description = "Roles permitidos: ADMIN")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {

@@ -4,7 +4,7 @@ import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 
-public record CreateWarehouseRequest(
+public record CreateWarehouseRequestDTO(
         @NotBlank @Size(max = 20)
         String code, // Añadido: Identificador de negocio
 

@@ -15,14 +15,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
-
-    private static final Pattern PASSWORD_LETTER_PATTERN = Pattern.compile(".*[A-Za-z].*");
-    private static final Pattern PASSWORD_DIGIT_PATTERN = Pattern.compile(".*\\d.*");
 
     @Value("${security.password-reset.expiration:900000}")
     private long passwordResetExpiration;
@@ -32,6 +28,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     private final PasswordRecoveryEmailService passwordRecoveryEmailService;
     private final PasswordEncoder passwordEncoder;
     private final AuthAuditService authAuditService;
+    private final PasswordPolicyService passwordPolicyService;
 
     @Override
     public AuthMessageResponse forgotPassword(String email, String ipAddress) {
@@ -53,7 +50,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
             throw new AuthException(HttpStatus.BAD_REQUEST, "Reset token is required");
         }
 
-        validatePasswordPolicy(newPassword);
+        passwordPolicyService.validate(newPassword);
 
         PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenAndUsedFalse(token)
                 .orElseThrow(() -> new AuthException(HttpStatus.BAD_REQUEST, "Invalid or used reset token"));
@@ -76,17 +73,6 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         authAuditService.audit(AuthAuditEventType.PASSWORD_RESET, user.getEmail(), ipAddress, "Password reset completed");
 
         return new AuthMessageResponse("Password updated successfully");
-    }
-
-    private void validatePasswordPolicy(String password) {
-        if (password == null || password.length() < 6) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters long");
-        }
-
-        if (!PASSWORD_LETTER_PATTERN.matcher(password).matches()
-                || !PASSWORD_DIGIT_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include letters and numbers");
-        }
     }
 
     private void createTokenAndSendEmail(AppUser user) {

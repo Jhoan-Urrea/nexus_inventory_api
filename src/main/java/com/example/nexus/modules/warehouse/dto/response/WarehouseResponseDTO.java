@@ -3,7 +3,7 @@ package com.example.nexus.modules.warehouse.dto.response;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public record WarehouseResponse(
+public record WarehouseResponseDTO(
         Long id,
         String code,
         String name,

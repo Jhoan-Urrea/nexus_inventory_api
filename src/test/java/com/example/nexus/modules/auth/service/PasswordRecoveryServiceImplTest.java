@@ -47,6 +47,9 @@ class PasswordRecoveryServiceImplTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
+    private PasswordPolicyService passwordPolicyService;
+
+    @Mock
     private AuthAuditService authAuditService;
 
     @InjectMocks
