@@ -24,5 +24,10 @@ Variables minimas requeridas:
 - `MAIL_PASSWORD`
 - `MAIL_PROTOCOL`
 
+## Primer usuario administrador
+Tras ejecutar el seed de la base de datos, no se crean usuarios por defecto (por seguridad). Para tener un admin:
+1. Registrar un usuario con `POST /api/auth/register` (body: username, email, password, cityId; usar un `cityId` existente, p. ej. 1 si corriste el seed).
+2. Asignar el rol ADMIN en la tabla `user_role` (insertar `user_id` del nuevo usuario y `role_id` del rol ADMIN), o usar un usuario ya existente con rol ADMIN para crear más usuarios desde `POST /api/users`.
+
 ## Perfil de pruebas
 Las pruebas de contexto usan el perfil `test` (`@ActiveProfiles("test")`), por lo que la conexion para tests se toma de `DB_TEST_*`.

@@ -258,35 +258,8 @@ INSERT INTO client (name, email, phone, document_type, document_number, business
 SELECT 'Cliente Demo', 'cliente.demo@nexus.local', '3000000000', 'NIT', '900000001', 'Cliente Demo SAS', 'Bogota', 'ACTIVE'
 WHERE NOT EXISTS (SELECT 1 FROM client WHERE email = 'cliente.demo@nexus.local');
 
-INSERT INTO app_user (username, email, password, status, city_id, client_id)
-SELECT 'admin', 'admin@nexus.local', 'Admin123', 'ACTIVE', c.city_id, NULL
-FROM city c
-WHERE c.city_name = 'Bogota'
-  AND NOT EXISTS (SELECT 1 FROM app_user WHERE email = 'admin@nexus.local')
-LIMIT 1;
-
-INSERT INTO app_user (username, email, password, status, city_id, client_id)
-SELECT 'cliente_demo', 'cliente.usuario@nexus.local', 'Cliente123', 'ACTIVE', c.city_id, cl.id
-FROM city c
-CROSS JOIN client cl
-WHERE c.city_name = 'Bogota'
-  AND cl.email = 'cliente.demo@nexus.local'
-  AND NOT EXISTS (SELECT 1 FROM app_user WHERE email = 'cliente.usuario@nexus.local')
-LIMIT 1;
-
-INSERT INTO user_role (user_id, role_id)
-SELECT u.id, r.id
-FROM app_user u
-JOIN role r ON r.name = 'ADMIN'
-WHERE u.email = 'admin@nexus.local'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO user_role (user_id, role_id)
-SELECT u.id, r.id
-FROM app_user u
-JOIN role r ON r.name = 'CLIENT'
-WHERE u.email = 'cliente.usuario@nexus.local'
-ON CONFLICT DO NOTHING;
+-- Dev users (admin, cliente_demo) are not inserted here to avoid exposing passwords in the repo.
+-- Create them via POST /api/auth/register and assign roles in DB, or run seed_current_api_dev.sql after adding users locally.
 
 INSERT INTO warehouse (name, description, capacity, available_capacity_m2, total_capacity_m2, location, active, city_id)
 SELECT 'Bodega Central', 'Bodega inicial para desarrollo local', 250.00, 250.00, 250.00, 'Bogota', TRUE, c.city_id
