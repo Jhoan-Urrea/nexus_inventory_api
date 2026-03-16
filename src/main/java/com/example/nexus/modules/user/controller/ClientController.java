@@ -30,7 +30,7 @@ public class ClientController {
     private final ClientService clientService;
     private final UserService userService;
 
-    @Operation(summary = "Listar todos los clientes")
+    @Operation(summary = "Listar todos los clientes", description = "Roles permitidos: ADMIN, SALES_AGENT")
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
     public List<ClientResponse> getAllClients() {
@@ -61,7 +61,7 @@ public class ClientController {
         return clientService.updateClient(id, request);
     }
 
-    @Operation(summary = "Eliminar cliente")
+    @Operation(summary = "Eliminar cliente", description = "Roles permitidos: ADMIN")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteClient(@PathVariable Long id) {

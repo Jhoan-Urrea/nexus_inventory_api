@@ -19,4 +19,10 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
     List<Warehouse> findByActive(Boolean active);
 
     List<Warehouse> findAllByOrderByNameAsc();
+
+    Optional<Warehouse> findByCode(String code);
+
+    List<Warehouse> findByCityId(Long cityId);
+
+    List<Warehouse> findByActiveTrue();
 }

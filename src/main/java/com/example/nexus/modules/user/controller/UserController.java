@@ -40,7 +40,7 @@ public class UserController {
         return userService.findAllUsers();
     }
 
-    @Operation(summary = "Obtener usuario por ID")
+    @Operation(summary = "Obtener usuario por ID", description = "Roles permitidos: ADMIN")
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponse getUserById(@PathVariable Long id) {

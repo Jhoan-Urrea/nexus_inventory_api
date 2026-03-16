@@ -3,8 +3,11 @@ package com.example.nexus.modules.auth.service;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
+import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
+import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.RefreshToken;
 import com.example.nexus.modules.auth.exception.AuthException;
@@ -31,11 +34,9 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private static final Pattern PASSWORD_LETTER_PATTERN = Pattern.compile(".*[A-Za-z].*");
-    private static final Pattern PASSWORD_DIGIT_PATTERN = Pattern.compile(".*\\d.*");
-
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicyService passwordPolicyService;
     private final AuthMapper authMapper;
     private final AuthRegistrationValidationService authRegistrationValidationService;
     private final AppUserRepository appUserRepository;
@@ -102,13 +103,18 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthMessageResponse forgotPassword(String email, String ipAddress) {
-        return passwordRecoveryService.forgotPassword(email, ipAddress);
+    public AuthMessageResponse forgotPassword(ForgotPasswordRequest request, String ipAddress) {
+        return passwordRecoveryService.forgotPassword(request, ipAddress);
     }
 
     @Override
-    public AuthMessageResponse resetPassword(String token, String newPassword, String ipAddress) {
-        return passwordRecoveryService.resetPassword(token, newPassword, ipAddress);
+    public AuthMessageResponse verifyPasswordRecoveryOtp(VerifyPasswordRecoveryOtpRequest request, String ipAddress) {
+        return passwordRecoveryService.verifyOtp(request, ipAddress);
+    }
+
+    @Override
+    public AuthMessageResponse resetPassword(ResetPasswordRequest request, String ipAddress) {
+        return passwordRecoveryService.resetPassword(request, ipAddress);
     }
 
     @Override
@@ -120,7 +126,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AuthException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
 
-        validatePasswordPolicy(request.newPassword());
+        passwordPolicyService.validate(request.newPassword());
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         appUserRepository.save(user);
@@ -152,14 +158,4 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.saveAll(tokens);
     }
 
-    private void validatePasswordPolicy(String password) {
-        if (password == null || password.length() < 6) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters long");
-        }
-
-        if (!PASSWORD_LETTER_PATTERN.matcher(password).matches()
-                || !PASSWORD_DIGIT_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include letters and numbers");
-        }
-    }
 }

@@ -1,8 +1,8 @@
 package com.example.nexus.modules.warehouse.controller;
 
-import com.example.nexus.modules.warehouse.dto.CreateWarehouseRequest;
-import com.example.nexus.modules.warehouse.dto.UpdateWarehouseRequest;
-import com.example.nexus.modules.warehouse.dto.WarehouseResponse;
+import com.example.nexus.modules.warehouse.dto.request.CreateWarehouseRequestDTO;
+import com.example.nexus.modules.warehouse.dto.request.UpdateWarehouseRequestDTO;
+import com.example.nexus.modules.warehouse.dto.response.WarehouseResponseDTO;
 import com.example.nexus.modules.warehouse.service.WarehouseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -71,7 +71,7 @@ public class WarehouseController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Eliminar bodega")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        warehouseService.deleteWarehouse(id);
+        warehouseService.delete(id);
         return ResponseEntity.noContent().build();
     }
 }

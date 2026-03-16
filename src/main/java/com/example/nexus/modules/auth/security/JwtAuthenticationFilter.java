@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -27,10 +28,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String AUTH_ERROR_MESSAGE_ATTR = "AUTH_ERROR_MESSAGE";
 
+    /**
+     * Public auth paths that must work without token and must not return 401 when a bad token is sent.
+     */
+    private static final Set<String> PUBLIC_AUTH_PATHS = Set.of(
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/refresh",
+            "/api/auth/logout",
+            "/api/auth/password/forgot",
+            "/api/auth/password/verify",
+            "/api/auth/password/reset"
+    );
+
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
     private final TokenLifecycleService tokenLifecycleService;
     private final AccountStateService accountStateService;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path != null && PUBLIC_AUTH_PATHS.contains(path);
+    }
 
     @Override
     protected void doFilterInternal(

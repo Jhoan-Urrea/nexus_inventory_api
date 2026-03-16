@@ -20,7 +20,7 @@ public class RoleController {
 
     private final RoleService roleService;
 
-    @Operation(summary = "Listar todos los roles")
+    @Operation(summary = "Listar todos los roles", description = "Roles permitidos: ADMIN")
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public List<RoleResponse> getRoles() {

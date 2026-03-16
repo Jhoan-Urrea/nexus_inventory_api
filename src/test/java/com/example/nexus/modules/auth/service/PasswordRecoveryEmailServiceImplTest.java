@@ -4,12 +4,10 @@ import com.example.nexus.modules.auth.exception.AuthException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,15 +20,20 @@ class PasswordRecoveryEmailServiceImplTest {
     @Mock
     private JavaMailSender mailSender;
 
+    private static String otp(char... chars) {
+        return new String(chars);
+    }
+
     @Test
     void sendPasswordResetEmailShouldComposeAndSendMessage() {
         PasswordRecoveryEmailServiceImpl service = new PasswordRecoveryEmailServiceImpl(
                 mailSender,
                 "no-reply@nexus.local",
-                "http://localhost:3000/reset-password"
+                600000L
         );
 
-        service.sendPasswordResetEmail("user@example.test", "token-123");
+        String code = otp('1','2','3','4','5','6');
+        service.sendPasswordRecoveryOtpEmail("user@example.test", code);
 
         ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(messageCaptor.capture());
@@ -38,23 +41,24 @@ class PasswordRecoveryEmailServiceImplTest {
         SimpleMailMessage message = messageCaptor.getValue();
         assertEquals("no-reply@nexus.local", message.getFrom());
         assertEquals("user@example.test", message.getTo()[0]);
-        assertEquals("Nexus - Recuperacion de contrasena", message.getSubject());
-        assertTrue(message.getText().contains("http://localhost:3000/reset-password?token=token-123"));
+        assertEquals("Nexus - Codigo de recuperacion", message.getSubject());
+        assertTrue(message.getText().contains(code));
+        assertTrue(message.getText().contains("10 minutes"));
     }
 
     @Test
-    void sendPasswordResetEmailShouldFailWhenResetUrlIsMissing() {
+    void sendPasswordResetEmailShouldFailWhenSenderIsMissing() {
         PasswordRecoveryEmailServiceImpl service = new PasswordRecoveryEmailServiceImpl(
                 mailSender,
-                "no-reply@nexus.local",
-                ""
+                "",
+                600000L
         );
 
         AuthException exception = assertThrows(
                 AuthException.class,
-                () -> service.sendPasswordResetEmail("user@example.test", "token-123")
+                () -> service.sendPasswordRecoveryOtpEmail("user@example.test", otp('1','2','3','4','5','6'))
         );
 
-        assertEquals("Recovery reset URL is not configured", exception.getMessage());
+        assertEquals("Recovery email sender is not configured", exception.getMessage());
     }
 }

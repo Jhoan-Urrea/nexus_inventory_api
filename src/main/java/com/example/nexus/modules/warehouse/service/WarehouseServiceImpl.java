@@ -2,133 +2,107 @@ package com.example.nexus.modules.warehouse.service;
 
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.location.repository.CityRepository;
-import com.example.nexus.modules.warehouse.dto.CreateWarehouseRequest;
-import com.example.nexus.modules.warehouse.dto.UpdateWarehouseRequest;
-import com.example.nexus.modules.warehouse.dto.WarehouseResponse;
+import com.example.nexus.modules.state.entity.StatusCatalog;
+import com.example.nexus.modules.state.repository.StatusCatalogRepository;
+import com.example.nexus.modules.warehouse.dto.request.CreateWarehouseRequestDTO;
+import com.example.nexus.modules.warehouse.dto.request.UpdateWarehouseRequestDTO;
+import com.example.nexus.modules.warehouse.dto.response.WarehouseResponseDTO;
 import com.example.nexus.modules.warehouse.entity.Warehouse;
+import com.example.nexus.modules.warehouse.entity.WarehouseType;
+import com.example.nexus.modules.warehouse.mapper.WarehouseMapper;
 import com.example.nexus.modules.warehouse.repository.WarehouseRepository;
+import com.example.nexus.modules.warehouse.repository.WarehouseTypeRepository;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class WarehouseServiceImpl implements WarehouseService {
-
-    private final WarehouseRepository warehouseRepository;
+    private final WarehouseRepository repository;
+    private final WarehouseMapper mapper;
     private final CityRepository cityRepository;
+    private final StatusCatalogRepository statusCatalogRepository;
+    private final WarehouseTypeRepository warehouseTypeRepository;
 
     @Override
-    public WarehouseResponse createWarehouse(CreateWarehouseRequest request) {
-
-        if (warehouseRepository.existsByName(request.name())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Warehouse with this name already exists");
+    public WarehouseResponseDTO create(CreateWarehouseRequestDTO dto) {
+        if (repository.findByCode(dto.code()).isPresent()) {
+            throw new RuntimeException("El código de bodega ya existe");
         }
+        City city = cityRepository.findById(dto.cityId())
+                .orElseThrow(() -> new RuntimeException("Ciudad no encontrada"));
 
-        City city = loadCity(request.cityId());
+        StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
+                .orElseThrow(() -> new RuntimeException("Estado de catálogo no encontrado"));
 
-        BigDecimal totalCapacity = request.totalCapacityM2();
+        WarehouseType type = warehouseTypeRepository.findById(dto.warehouseTypeId())
+                .orElseThrow(() -> new RuntimeException("Tipo de bodega no encontrado"));
 
-        Warehouse warehouse = Warehouse.builder()
-                .name(request.name())
-                .description(request.description())
-                .capacity(request.capacity())
-                .availableCapacityM2(totalCapacity)
-                .totalCapacityM2(totalCapacity)
-                .location(request.location())
-                .active(request.active() != null ? request.active() : Boolean.TRUE)
-                .city(city)
-                .build();
-
-        return toResponse(warehouseRepository.save(warehouse));
+        Warehouse entity = mapper.toEntity(dto, city, status, type);
+        return mapper.toResponseDTO(repository.save(entity));
     }
 
     @Override
-    public List<WarehouseResponse> getAllWarehouses() {
-        return warehouseRepository.findAllByOrderByNameAsc()
-                .stream()
-                .map(this::toResponse)
+    public WarehouseResponseDTO update(Long id, UpdateWarehouseRequestDTO dto) {
+        Warehouse warehouse = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Bodega no encontrada"));
+
+        if (dto.name() != null && !dto.name().isBlank()) {
+            warehouse.setName(dto.name());
+        }
+        if (dto.location() != null) {
+            warehouse.setLocation(dto.location());
+        }
+        if (dto.totalCapacityM2() != null) {
+            warehouse.setTotalCapacityM2(dto.totalCapacityM2());
+        }
+        if (dto.cityId() != null) {
+            City city = cityRepository.findById(dto.cityId())
+                    .orElseThrow(() -> new RuntimeException("Ciudad no encontrada"));
+            warehouse.setCity(city);
+        }
+        if (dto.statusCatalogId() != null) {
+            StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
+                    .orElseThrow(() -> new RuntimeException("Estado de catálogo no encontrado"));
+            warehouse.setStatus(status);
+        }
+        if (dto.warehouseTypeId() != null) {
+            WarehouseType type = warehouseTypeRepository.findById(dto.warehouseTypeId())
+                    .orElseThrow(() -> new RuntimeException("Tipo de bodega no encontrado"));
+            warehouse.setWarehouseType(type);
+        }
+        if (dto.active() != null) {
+            warehouse.setActive(dto.active());
+        }
+
+        return mapper.toResponseDTO(repository.save(warehouse));
+    }
+
+    @Override
+    public WarehouseResponseDTO delete(Long id) {
+        Warehouse warehouse = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Bodega no encontrada"));
+        repository.delete(warehouse);
+        return mapper.toResponseDTO(warehouse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WarehouseResponseDTO findById(Long id) {
+        return repository.findById(id)
+                .map(mapper::toResponseDTO)
+                .orElseThrow(() -> new RuntimeException("Bodega no encontrada"));
+    }
+
+    @Override
+    public List<WarehouseResponseDTO> findAll() {
+        return repository.findAllByOrderByNameAsc().stream()
+                .map(mapper::toResponseDTO)
                 .toList();
     }
-
-    @Override
-    public WarehouseResponse getWarehouseById(Long id) {
-
-        return warehouseRepository.findById(id)
-                .map(this::toResponse)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
-    }
-
-    @Override
-    public WarehouseResponse updateWarehouse(Long id, UpdateWarehouseRequest request) {
-
-        Warehouse warehouse = warehouseRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
-
-        if (warehouseRepository.existsByNameAndIdNot(request.name(), id)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Warehouse with this name already exists");
-        }
-
-        warehouse.setName(request.name());
-        warehouse.setDescription(request.description());
-        warehouse.setCapacity(request.capacity());
-        warehouse.setLocation(request.location());
-
-        if (request.totalCapacityM2() != null) {
-            warehouse.setTotalCapacityM2(request.totalCapacityM2());
-            warehouse.setAvailableCapacityM2(request.totalCapacityM2());
-        }
-
-        if (request.cityId() != null) {
-            warehouse.setCity(loadCity(request.cityId()));
-        }
-
-        if (request.active() != null) {
-            warehouse.setActive(request.active());
-        }
-
-        return toResponse(warehouseRepository.save(warehouse));
-    }
-
-    @Override
-    public void deleteWarehouse(Long id) {
-
-        Warehouse warehouse = warehouseRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Warehouse not found"));
-
-        warehouseRepository.delete(warehouse);
-    }
-
-    private City loadCity(Long cityId) {
-
-        return cityRepository.findById(cityId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.BAD_REQUEST, "City not found"));
-    }
-
-    private WarehouseResponse toResponse(Warehouse warehouse) {
-
-        return new WarehouseResponse(
-                warehouse.getId(),
-                warehouse.getName(),
-                warehouse.getDescription(),
-                warehouse.getCapacity(),
-                warehouse.getAvailableCapacityM2(),
-                warehouse.getTotalCapacityM2(),
-                warehouse.getLocation(),
-                warehouse.getActive(),
-                warehouse.getCity().getId(),
-                warehouse.getCity().getName(),
-                warehouse.getCreatedAt()
-        );
-    }
+    // ... implementar otros métodos
 }
