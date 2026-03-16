@@ -3,8 +3,11 @@ package com.example.nexus.modules.auth.service;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
+import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
+import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.RefreshToken;
 import com.example.nexus.modules.auth.mapper.AuthMapper;
@@ -169,14 +172,38 @@ class AuthServiceImplTest {
 
     @Test
     void forgotPasswordShouldDelegateToRecoveryService() {
-        String email = sampleEmail();
+        ForgotPasswordRequest request = new ForgotPasswordRequest(sampleEmail());
         AuthMessageResponse expected = new AuthMessageResponse("ok");
 
-        when(passwordRecoveryService.forgotPassword(email, "127.0.0.1")).thenReturn(expected);
+        when(passwordRecoveryService.forgotPassword(request, "127.0.0.1")).thenReturn(expected);
 
-        AuthMessageResponse response = authService.forgotPassword(email, "127.0.0.1");
+        AuthMessageResponse response = authService.forgotPassword(request, "127.0.0.1");
 
         assertEquals("ok", response.message());
+    }
+
+    @Test
+    void verifyPasswordRecoveryOtpShouldDelegateToRecoveryService() {
+        VerifyPasswordRecoveryOtpRequest request = new VerifyPasswordRecoveryOtpRequest(sampleEmail(), "123456");
+        AuthMessageResponse expected = new AuthMessageResponse("verified");
+
+        when(passwordRecoveryService.verifyOtp(request, "127.0.0.1")).thenReturn(expected);
+
+        AuthMessageResponse response = authService.verifyPasswordRecoveryOtp(request, "127.0.0.1");
+
+        assertEquals("verified", response.message());
+    }
+
+    @Test
+    void resetPasswordShouldDelegateToRecoveryService() {
+        ResetPasswordRequest request = new ResetPasswordRequest(sampleEmail(), "123456", samplePassword());
+        AuthMessageResponse expected = new AuthMessageResponse("reset");
+
+        when(passwordRecoveryService.resetPassword(request, "127.0.0.1")).thenReturn(expected);
+
+        AuthMessageResponse response = authService.resetPassword(request, "127.0.0.1");
+
+        assertEquals("reset", response.message());
     }
 
     @Test

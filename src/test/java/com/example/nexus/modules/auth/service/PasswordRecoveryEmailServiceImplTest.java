@@ -27,10 +27,10 @@ class PasswordRecoveryEmailServiceImplTest {
         PasswordRecoveryEmailServiceImpl service = new PasswordRecoveryEmailServiceImpl(
                 mailSender,
                 "no-reply@nexus.local",
-                "http://localhost:3000/reset-password"
+                600000L
         );
 
-        service.sendPasswordResetEmail("user@example.test", "token-123");
+        service.sendPasswordRecoveryOtpEmail("user@example.test", "123456");
 
         ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(messageCaptor.capture());
@@ -38,23 +38,24 @@ class PasswordRecoveryEmailServiceImplTest {
         SimpleMailMessage message = messageCaptor.getValue();
         assertEquals("no-reply@nexus.local", message.getFrom());
         assertEquals("user@example.test", message.getTo()[0]);
-        assertEquals("Nexus - Recuperacion de contrasena", message.getSubject());
-        assertTrue(message.getText().contains("http://localhost:3000/reset-password?token=token-123"));
+        assertEquals("Nexus - Codigo de recuperacion", message.getSubject());
+        assertTrue(message.getText().contains("123456"));
+        assertTrue(message.getText().contains("10 minutes"));
     }
 
     @Test
-    void sendPasswordResetEmailShouldFailWhenResetUrlIsMissing() {
+    void sendPasswordResetEmailShouldFailWhenSenderIsMissing() {
         PasswordRecoveryEmailServiceImpl service = new PasswordRecoveryEmailServiceImpl(
                 mailSender,
-                "no-reply@nexus.local",
-                ""
+                "",
+                600000L
         );
 
         AuthException exception = assertThrows(
                 AuthException.class,
-                () -> service.sendPasswordResetEmail("user@example.test", "token-123")
+                () -> service.sendPasswordRecoveryOtpEmail("user@example.test", "123456")
         );
 
-        assertEquals("Recovery reset URL is not configured", exception.getMessage());
+        assertEquals("Recovery email sender is not configured", exception.getMessage());
     }
 }

@@ -7,6 +7,7 @@ public enum AuthAuditEventType {
     TOKEN_REFRESH,
     LOGOUT,
     PASSWORD_FORGOT,
+    PASSWORD_RESET_OTP_VERIFIED,
     PASSWORD_RESET,
     PASSWORD_CHANGED
 }

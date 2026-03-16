@@ -18,6 +18,11 @@ Variables minimas requeridas:
 - `jwt_expiration`
 - `JWT_TEST_SECRET`
 - `JWT_TEST_EXPIRATION`
+- `MAIL_HOST`
+- `MAIL_PORT`
+- `MAIL_USERNAME`
+- `MAIL_PASSWORD`
+- `MAIL_PROTOCOL`
 
 ## Perfil de pruebas
 Las pruebas de contexto usan el perfil `test` (`@ActiveProfiles("test")`), por lo que la conexion para tests se toma de `DB_TEST_*`.
