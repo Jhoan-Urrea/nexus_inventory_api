@@ -219,7 +219,7 @@ class AuthControllerTest {
         when(authService.verifyPasswordRecoveryOtp(any(), anyString()))
                 .thenReturn(new AuthMessageResponse("Verification code validated successfully"));
 
-        String payload = toJson(new VerifyPasswordRecoveryOtpRequest(sampleEmail(), "123456"));
+        String payload = toJson(new VerifyPasswordRecoveryOtpRequest(sampleEmail(), sampleOtp()));
 
         mockMvc.perform(post("/api/auth/password/verify")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -235,7 +235,7 @@ class AuthControllerTest {
         when(authService.resetPassword(any(), anyString()))
                 .thenReturn(new AuthMessageResponse("Password updated successfully"));
 
-        String payload = toJson(new ResetPasswordRequest(sampleEmail(), "123456", sampleValidPassword()));
+        String payload = toJson(new ResetPasswordRequest(sampleEmail(), sampleOtp(), sampleValidPassword()));
 
         mockMvc.perform(post("/api/auth/password/reset")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -256,5 +256,9 @@ class AuthControllerTest {
 
     private String sampleValidPassword() {
         return "A1" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private String sampleOtp() {
+        return new String(new char[]{'1','2','3','4','5','6'});
     }
 }

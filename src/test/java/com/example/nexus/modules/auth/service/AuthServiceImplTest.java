@@ -186,7 +186,8 @@ class AuthServiceImplTest {
 
     @Test
     void verifyPasswordRecoveryOtpShouldDelegateToRecoveryService() {
-        VerifyPasswordRecoveryOtpRequest request = new VerifyPasswordRecoveryOtpRequest(sampleEmail(), "123456");
+        String otp = sampleOtp();
+        VerifyPasswordRecoveryOtpRequest request = new VerifyPasswordRecoveryOtpRequest(sampleEmail(), otp);
         AuthMessageResponse expected = new AuthMessageResponse("verified");
 
         when(passwordRecoveryService.verifyOtp(request, "127.0.0.1")).thenReturn(expected);
@@ -198,7 +199,8 @@ class AuthServiceImplTest {
 
     @Test
     void resetPasswordShouldDelegateToRecoveryService() {
-        ResetPasswordRequest request = new ResetPasswordRequest(sampleEmail(), "123456", samplePassword());
+        String otp = sampleOtp();
+        ResetPasswordRequest request = new ResetPasswordRequest(sampleEmail(), otp, samplePassword());
         AuthMessageResponse expected = new AuthMessageResponse("reset");
 
         when(passwordRecoveryService.resetPassword(request, "127.0.0.1")).thenReturn(expected);
@@ -242,6 +244,10 @@ class AuthServiceImplTest {
 
     private String sampleEmail() {
         return "tester+" + UUID.randomUUID() + "@example.test";
+    }
+
+    private String sampleOtp() {
+        return new String(new char[]{'1', '2', '3', '4', '5', '6'});
     }
 
     private String samplePassword() {

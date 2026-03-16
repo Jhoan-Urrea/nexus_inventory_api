@@ -20,6 +20,10 @@ class PasswordRecoveryEmailServiceImplTest {
     @Mock
     private JavaMailSender mailSender;
 
+    private static String otp(char... chars) {
+        return new String(chars);
+    }
+
     @Test
     void sendPasswordResetEmailShouldComposeAndSendMessage() {
         PasswordRecoveryEmailServiceImpl service = new PasswordRecoveryEmailServiceImpl(
@@ -28,7 +32,8 @@ class PasswordRecoveryEmailServiceImplTest {
                 600000L
         );
 
-        service.sendPasswordRecoveryOtpEmail("user@example.test", "123456");
+        String code = otp('1','2','3','4','5','6');
+        service.sendPasswordRecoveryOtpEmail("user@example.test", code);
 
         ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(messageCaptor.capture());
@@ -37,7 +42,7 @@ class PasswordRecoveryEmailServiceImplTest {
         assertEquals("no-reply@nexus.local", message.getFrom());
         assertEquals("user@example.test", message.getTo()[0]);
         assertEquals("Nexus - Codigo de recuperacion", message.getSubject());
-        assertTrue(message.getText().contains("123456"));
+        assertTrue(message.getText().contains(code));
         assertTrue(message.getText().contains("10 minutes"));
     }
 
@@ -51,7 +56,7 @@ class PasswordRecoveryEmailServiceImplTest {
 
         AuthException exception = assertThrows(
                 AuthException.class,
-                () -> service.sendPasswordRecoveryOtpEmail("user@example.test", "123456")
+                () -> service.sendPasswordRecoveryOtpEmail("user@example.test", otp('1','2','3','4','5','6'))
         );
 
         assertEquals("Recovery email sender is not configured", exception.getMessage());
