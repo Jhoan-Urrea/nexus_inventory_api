@@ -8,36 +8,37 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.stereotype.Service;
-import org.springframework.web.util.UriComponentsBuilder;
+
+import java.time.Duration;
 
 @Service
 public class PasswordRecoveryEmailServiceImpl implements PasswordRecoveryEmailService {
 
-    private static final String SUBJECT = "Nexus - Recuperacion de contrasena";
+    private static final String SUBJECT = "Nexus - Codigo de recuperacion";
 
     private final JavaMailSender mailSender;
     private final String fromAddress;
-    private final String resetPasswordUrl;
+    private final long passwordResetExpiration;
 
     public PasswordRecoveryEmailServiceImpl(
             JavaMailSender mailSender,
             @Value("${app.auth.password-recovery.mail-from}") String fromAddress,
-            @Value("${app.auth.password-recovery.reset-url}") String resetPasswordUrl
+            @Value("${security.password-reset.expiration:600000}") long passwordResetExpiration
     ) {
         this.mailSender = mailSender;
         this.fromAddress = fromAddress;
-        this.resetPasswordUrl = resetPasswordUrl;
+        this.passwordResetExpiration = passwordResetExpiration;
     }
 
     @Override
-    public void sendPasswordResetEmail(String email, String token) {
+    public void sendPasswordRecoveryOtpEmail(String email, String code) {
         validateConfiguration();
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(email);
         message.setSubject(SUBJECT);
-        message.setText(buildBody(token));
+        message.setText(buildBody(code));
 
         try {
             mailSender.send(message);
@@ -51,30 +52,24 @@ public class PasswordRecoveryEmailServiceImpl implements PasswordRecoveryEmailSe
             throw new AuthException(HttpStatus.SERVICE_UNAVAILABLE, "Recovery email sender is not configured");
         }
 
-        if (resetPasswordUrl == null || resetPasswordUrl.isBlank()) {
-            throw new AuthException(HttpStatus.SERVICE_UNAVAILABLE, "Recovery reset URL is not configured");
-        }
-
         if (mailSender instanceof JavaMailSenderImpl sender
                 && (sender.getHost() == null || sender.getHost().isBlank())) {
             throw new AuthException(HttpStatus.SERVICE_UNAVAILABLE, "SMTP server is not configured");
         }
     }
 
-    private String buildBody(String token) {
-        String resetLink = UriComponentsBuilder.fromUriString(resetPasswordUrl)
-                .queryParam("token", token)
-                .build()
-                .encode()
-                .toUriString();
+    private String buildBody(String code) {
+        long expirationMinutes = Math.max(1, Duration.ofMillis(passwordResetExpiration).toMinutes());
 
         return """
-                We received a request to reset your Nexus password.
+                We received a request to recover your Nexus password.
 
-                Use the following link to continue:
+                Your verification code is:
                 %s
 
+                This code expires in %d minutes and can only be used once.
+
                 If you did not request this change, you can ignore this email.
-                """.formatted(resetLink);
+                """.formatted(code, expirationMinutes);
     }
 }

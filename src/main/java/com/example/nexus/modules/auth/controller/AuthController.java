@@ -56,16 +56,25 @@ public class AuthController {
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest
     ) {
-        return authService.forgotPassword(request.email(), resolveClientIp(httpRequest));
+        return authService.forgotPassword(request, resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Resetear contraseña usando token enviado por email")
+    @Operation(summary = "Validar OTP de recuperación de contraseña")
+    @PostMapping("/password/verify")
+    public AuthMessageResponse verifyPasswordRecoveryOtp(
+            @Valid @RequestBody VerifyPasswordRecoveryOtpRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return authService.verifyPasswordRecoveryOtp(request, resolveClientIp(httpRequest));
+    }
+
+    @Operation(summary = "Resetear contraseña usando OTP enviado por email")
     @PostMapping("/password/reset")
     public AuthMessageResponse resetPassword(
             @Valid @RequestBody ResetPasswordRequest request,
             HttpServletRequest httpRequest
     ) {
-        return authService.resetPassword(request.token(), request.newPassword(), resolveClientIp(httpRequest));
+        return authService.resetPassword(request, resolveClientIp(httpRequest));
     }
 
     @Operation(summary = "Cambiar contraseña del usuario autenticado")

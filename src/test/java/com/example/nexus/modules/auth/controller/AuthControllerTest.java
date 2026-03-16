@@ -3,10 +3,13 @@ package com.example.nexus.modules.auth.controller;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
+import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
 import com.example.nexus.modules.auth.dto.LogoutRequest;
 import com.example.nexus.modules.auth.dto.RefreshTokenRequest;
+import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.exception.AuthExceptionHandler;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
@@ -193,6 +196,54 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Password updated successfully"));
 
         verify(authService).changePassword(anyString(), any(), anyString());
+    }
+
+    @Test
+    void forgotPasswordShouldDelegateToService() throws Exception {
+        when(authService.forgotPassword(any(), anyString()))
+                .thenReturn(new AuthMessageResponse("If the email exists, recovery instructions were generated"));
+
+        String payload = toJson(new ForgotPasswordRequest(sampleEmail()));
+
+        mockMvc.perform(post("/api/auth/password/forgot")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("If the email exists, recovery instructions were generated"));
+
+        verify(authService).forgotPassword(any(), anyString());
+    }
+
+    @Test
+    void verifyPasswordRecoveryOtpShouldDelegateToService() throws Exception {
+        when(authService.verifyPasswordRecoveryOtp(any(), anyString()))
+                .thenReturn(new AuthMessageResponse("Verification code validated successfully"));
+
+        String payload = toJson(new VerifyPasswordRecoveryOtpRequest(sampleEmail(), "123456"));
+
+        mockMvc.perform(post("/api/auth/password/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Verification code validated successfully"));
+
+        verify(authService).verifyPasswordRecoveryOtp(any(), anyString());
+    }
+
+    @Test
+    void resetPasswordShouldDelegateToService() throws Exception {
+        when(authService.resetPassword(any(), anyString()))
+                .thenReturn(new AuthMessageResponse("Password updated successfully"));
+
+        String payload = toJson(new ResetPasswordRequest(sampleEmail(), "123456", sampleValidPassword()));
+
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Password updated successfully"));
+
+        verify(authService).resetPassword(any(), anyString());
     }
 
     private String toJson(Object request) throws Exception {

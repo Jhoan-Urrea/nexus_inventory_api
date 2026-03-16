@@ -18,17 +18,20 @@ public class PasswordResetToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 700)
-    private String token;
-
     @Column(nullable = false)
     private String email;
+
+    @Column(nullable = false, length = 6)
+    private String code;
 
     @Column(nullable = false)
     private Instant expiresAt;
 
     @Column(nullable = false)
     private boolean used;
+
+    @Column(nullable = false)
+    private int attemptCount;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

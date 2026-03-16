@@ -3,8 +3,11 @@ package com.example.nexus.modules.auth.service;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
+import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
+import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.RefreshToken;
 import com.example.nexus.modules.auth.exception.AuthException;
@@ -100,13 +103,18 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthMessageResponse forgotPassword(String email, String ipAddress) {
-        return passwordRecoveryService.forgotPassword(email, ipAddress);
+    public AuthMessageResponse forgotPassword(ForgotPasswordRequest request, String ipAddress) {
+        return passwordRecoveryService.forgotPassword(request, ipAddress);
     }
 
     @Override
-    public AuthMessageResponse resetPassword(String token, String newPassword, String ipAddress) {
-        return passwordRecoveryService.resetPassword(token, newPassword, ipAddress);
+    public AuthMessageResponse verifyPasswordRecoveryOtp(VerifyPasswordRecoveryOtpRequest request, String ipAddress) {
+        return passwordRecoveryService.verifyOtp(request, ipAddress);
+    }
+
+    @Override
+    public AuthMessageResponse resetPassword(ResetPasswordRequest request, String ipAddress) {
+        return passwordRecoveryService.resetPassword(request, ipAddress);
     }
 
     @Override
