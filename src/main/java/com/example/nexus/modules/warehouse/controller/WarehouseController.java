@@ -35,36 +35,35 @@ public class WarehouseController {
             @ApiResponse(responseCode = "400", description = "Datos inválidos"),
             @ApiResponse(responseCode = "403", description = "Sin permisos")
     })
-    public ResponseEntity<WarehouseResponse> create(@Valid @RequestBody CreateWarehouseRequest request) {
-        WarehouseResponse response = warehouseService.createWarehouse(request);
+    public ResponseEntity<WarehouseResponseDTO> create(@Valid @RequestBody CreateWarehouseRequestDTO request) {
+        WarehouseResponseDTO response = warehouseService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     @Operation(summary = "Listar bodegas")
-    public ResponseEntity<List<WarehouseResponse>> getAll() {
-        List<WarehouseResponse> response = warehouseService.getAllWarehouses();
-        return ResponseEntity.ok(response);
+    public ResponseEntity<List<WarehouseResponseDTO>> getAll() {
+        // TODO: Implement getAll method in WarehouseService
+        throw new UnsupportedOperationException("getAll() is not implemented in WarehouseService");
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     @Operation(summary = "Obtener bodega por id")
-    public ResponseEntity<WarehouseResponse> getById(@PathVariable Long id) {
-        WarehouseResponse response = warehouseService.getWarehouseById(id);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<WarehouseResponseDTO> getById(@PathVariable Long id) {
+        // TODO: Implement getWarehouseById method in WarehouseService
+        throw new UnsupportedOperationException("getWarehouseById(Long) is not implemented in WarehouseService");
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Actualizar bodega")
-    public ResponseEntity<WarehouseResponse> update(
+    public ResponseEntity<WarehouseResponseDTO> update(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateWarehouseRequest request) {
-
-        WarehouseResponse response = warehouseService.updateWarehouse(id, request);
-        return ResponseEntity.ok(response);
+            @Valid @RequestBody UpdateWarehouseRequestDTO request) {
+        // TODO: Implement updateWarehouse method in WarehouseService
+        throw new UnsupportedOperationException("updateWarehouse(Long, UpdateWarehouseRequestDTO) is not implemented in WarehouseService");
     }
 
     @DeleteMapping("/{id}")
