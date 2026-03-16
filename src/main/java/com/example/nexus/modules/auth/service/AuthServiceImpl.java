@@ -34,11 +34,9 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private static final Pattern PASSWORD_LETTER_PATTERN = Pattern.compile(".*[A-Za-z].*");
-    private static final Pattern PASSWORD_DIGIT_PATTERN = Pattern.compile(".*\\d.*");
-
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicyService passwordPolicyService;
     private final AuthMapper authMapper;
     private final AuthRegistrationValidationService authRegistrationValidationService;
     private final AppUserRepository appUserRepository;
@@ -128,7 +126,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AuthException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
 
-        validatePasswordPolicy(request.newPassword());
+        passwordPolicyService.validate(request.newPassword());
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         appUserRepository.save(user);
@@ -160,14 +158,4 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.saveAll(tokens);
     }
 
-    private void validatePasswordPolicy(String password) {
-        if (password == null || password.length() < 6) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters long");
-        }
-
-        if (!PASSWORD_LETTER_PATTERN.matcher(password).matches()
-                || !PASSWORD_DIGIT_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include letters and numbers");
-        }
-    }
 }

@@ -19,13 +19,13 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @Operation(summary = "Iniciar sesión y obtener JWT + refresh token")
+    @Operation(summary = "Iniciar sesión y obtener JWT + refresh token", description = "No requiere autenticación.")
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         return authService.login(request, resolveClientIp(httpRequest));
     }
 
-    @Operation(summary = "Registrar un nuevo usuario")
+    @Operation(summary = "Registrar un nuevo usuario", description = "Registro público. Usuario por defecto: WAREHOUSE_EMPLOYEE.")
     @PostMapping("/register")
     public AuthResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
         return authService.register(request, resolveClientIp(httpRequest));

@@ -1,30 +1,32 @@
 package com.example.nexus.modules.auth.service;
 
-import com.example.nexus.modules.auth.dto.AuthMessageResponse;
-import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
-import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
-import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
-import com.example.nexus.modules.auth.entity.AuthAuditEventType;
-import com.example.nexus.modules.auth.entity.PasswordResetToken;
-import com.example.nexus.modules.auth.exception.AuthException;
-import com.example.nexus.modules.auth.mapper.PasswordRecoveryMapper;
-import com.example.nexus.modules.auth.repository.PasswordResetTokenRepository;
-import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
-import com.example.nexus.modules.auth.entity.RefreshToken;
-import com.example.nexus.modules.user.entity.AppUser;
-import com.example.nexus.modules.user.repository.AppUserRepository;
-import lombok.RequiredArgsConstructor;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
-import java.util.regex.Pattern;
+import com.example.nexus.modules.auth.dto.AuthMessageResponse;
+import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
+import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
+import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
+import com.example.nexus.modules.auth.entity.AuthAuditEventType;
+import com.example.nexus.modules.auth.entity.PasswordResetToken;
+import com.example.nexus.modules.auth.entity.RefreshToken;
+import com.example.nexus.modules.auth.exception.AuthException;
+import com.example.nexus.modules.auth.mapper.PasswordRecoveryMapper;
+import com.example.nexus.modules.auth.repository.PasswordResetTokenRepository;
+import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
+import com.example.nexus.modules.user.entity.AppUser;
+import com.example.nexus.modules.user.repository.AppUserRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +50,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     private final PasswordRecoveryMapper passwordRecoveryMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthAuditService authAuditService;
+    private final PasswordPolicyService passwordPolicyService;
 
     @Override
     @Transactional
