@@ -1,6 +1,6 @@
 -- Minimal bootstrap data for local/dev use with the current API.
--- The admin password is inserted in plain text on purpose so that
--- PasswordMigrationRunner can encode it automatically in the dev profile.
+-- Users (admin, cliente_demo) are NOT created here to avoid exposing passwords in the repo.
+-- Create the first admin via: POST /api/auth/register with cityId from this seed, then assign ADMIN role in DB if needed.
 
 BEGIN;
 
@@ -66,56 +66,6 @@ WHERE NOT EXISTS (
     FROM client
     WHERE email = 'cliente.demo@nexus.local'
 );
-
-INSERT INTO app_user (username, email, password, status, city_id, client_id)
-SELECT
-    'admin',
-    'admin@nexus.local',
-    'Admin123',
-    'ACTIVE',
-    c.city_id,
-    NULL
-FROM city c
-WHERE c.city_name = 'Bogota'
-  AND NOT EXISTS (
-      SELECT 1
-      FROM app_user
-      WHERE email = 'admin@nexus.local'
-  )
-LIMIT 1;
-
-INSERT INTO app_user (username, email, password, status, city_id, client_id)
-SELECT
-    'cliente_demo',
-    'cliente.usuario@nexus.local',
-    'Cliente123',
-    'ACTIVE',
-    c.city_id,
-    cl.id
-FROM city c
-CROSS JOIN client cl
-WHERE c.city_name = 'Bogota'
-  AND cl.email = 'cliente.demo@nexus.local'
-  AND NOT EXISTS (
-      SELECT 1
-      FROM app_user
-      WHERE email = 'cliente.usuario@nexus.local'
-  )
-LIMIT 1;
-
-INSERT INTO user_role (user_id, role_id)
-SELECT u.id, r.id
-FROM app_user u
-JOIN role r ON r.name = 'ADMIN'
-WHERE u.email = 'admin@nexus.local'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO user_role (user_id, role_id)
-SELECT u.id, r.id
-FROM app_user u
-JOIN role r ON r.name = 'CLIENT'
-WHERE u.email = 'cliente.usuario@nexus.local'
-ON CONFLICT DO NOTHING;
 
 INSERT INTO warehouse (
     name,
