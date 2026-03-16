@@ -44,16 +44,14 @@ public class WarehouseController {
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     @Operation(summary = "Listar bodegas")
     public ResponseEntity<List<WarehouseResponseDTO>> getAll() {
-        // TODO: Implement getAll method in WarehouseService
-        throw new UnsupportedOperationException("getAll() is not implemented in WarehouseService");
+        return ResponseEntity.ok(warehouseService.findAll());
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     @Operation(summary = "Obtener bodega por id")
     public ResponseEntity<WarehouseResponseDTO> getById(@PathVariable Long id) {
-        // TODO: Implement getWarehouseById method in WarehouseService
-        throw new UnsupportedOperationException("getWarehouseById(Long) is not implemented in WarehouseService");
+        return ResponseEntity.ok(warehouseService.findById(id));
     }
 
     @PutMapping("/{id}")
@@ -62,8 +60,7 @@ public class WarehouseController {
     public ResponseEntity<WarehouseResponseDTO> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateWarehouseRequestDTO request) {
-        // TODO: Implement updateWarehouse method in WarehouseService
-        throw new UnsupportedOperationException("updateWarehouse(Long, UpdateWarehouseRequestDTO) is not implemented in WarehouseService");
+        return ResponseEntity.ok(warehouseService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
