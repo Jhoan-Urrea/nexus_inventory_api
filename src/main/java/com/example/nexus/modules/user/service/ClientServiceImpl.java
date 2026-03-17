@@ -106,7 +106,9 @@ public class ClientServiceImpl implements ClientService {
                 client.getDocumentNumber(),
                 client.getBusinessName(),
                 client.getAddress(),
-                client.getStatus().name()
+                client.getStatus().name(),
+                client.getCreatedAt(),
+                client.getUpdatedAt()
         );
     }
 }

@@ -17,7 +17,7 @@ public class RoleServiceImpl implements RoleService {
     public List<RoleResponse> findAllRoles() {
         return roleRepository.findAllByOrderByNameAsc()
                 .stream()
-                .map(role -> new RoleResponse(role.getId(), role.getName()))
+                .map(role -> new RoleResponse(role.getId(), role.getName(), role.getDescription(), role.getCreatedAt()))
                 .toList();
     }
 }
