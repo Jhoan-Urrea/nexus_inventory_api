@@ -45,7 +45,10 @@ class UserControllerTest {
                         "cliente@empresa.com",
                         "ACTIVE",
                         Set.of("CLIENT"),
-                        10L
+                        1L,
+                        10L,
+                        null,
+                        null
                 ));
 
         String payload = """

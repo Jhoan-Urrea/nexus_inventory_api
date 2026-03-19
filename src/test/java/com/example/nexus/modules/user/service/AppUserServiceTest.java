@@ -90,7 +90,7 @@ class AppUserServiceTest {
 
         when(userRepository.save(any(AppUser.class))).thenReturn(persisted);
         when(userMapper.toResponse(persisted))
-                .thenReturn(new UserResponse(100L, "cliente1", "cliente@empresa.com", "ACTIVE", Set.of("CLIENT"), 10L));
+                .thenReturn(new UserResponse(100L, "cliente1", "cliente@empresa.com", "ACTIVE", Set.of("CLIENT"), 1L, 10L, null, null));
 
         UserResponse response = userService.createUser(request);
 

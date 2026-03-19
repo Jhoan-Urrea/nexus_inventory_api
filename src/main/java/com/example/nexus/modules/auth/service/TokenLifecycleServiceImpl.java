@@ -3,13 +3,10 @@ package com.example.nexus.modules.auth.service;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.RefreshToken;
-import com.example.nexus.modules.auth.entity.RevokedToken;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
-import com.example.nexus.modules.auth.repository.RevokedTokenRepository;
 import com.example.nexus.modules.auth.security.CustomUserDetailsService;
 import com.example.nexus.modules.auth.security.JwtService;
-import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -28,7 +25,6 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
 
     private final JwtService jwtService;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final RevokedTokenRepository revokedTokenRepository;
     private final CustomUserDetailsService userDetailsService;
     private final AccountStateService accountStateService;
     private final AuthAuditService authAuditService;
@@ -49,14 +45,10 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
             throw new AuthException(HttpStatus.BAD_REQUEST, "Refresh token is required");
         }
 
-        RefreshToken storedToken = refreshTokenRepository.findByTokenAndRevokedFalse(refreshToken)
+        RefreshToken storedToken = refreshTokenRepository.findByToken(refreshToken)
                 .orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
 
-        if (storedToken.getExpiresAt().isBefore(Instant.now())) {
-            storedToken.setRevoked(true);
-            refreshTokenRepository.save(storedToken);
-            throw new AuthException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
-        }
+        validateRefreshToken(storedToken);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(storedToken.getEmail());
         accountStateService.assertCanAuthenticate(userDetails);
@@ -77,28 +69,29 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
         return new AuthResponse(newAccessToken, newRefreshToken);
     }
 
+    /**
+     * Validates: token exists (caller responsibility), not revoked, not expired.
+     */
+    private void validateRefreshToken(RefreshToken token) {
+        if (token.isRevoked()) {
+            throw new AuthException(HttpStatus.UNAUTHORIZED, "Refresh token has been revoked");
+        }
+        if (token.getExpiresAt().isBefore(Instant.now())) {
+            token.setRevoked(true);
+            refreshTokenRepository.save(token);
+            throw new AuthException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
+        }
+    }
+
     @Override
     public void logout(String accessToken, String refreshToken, String ipAddress) {
         String email = "unknown";
 
         if (accessToken != null && !accessToken.isBlank()) {
             try {
-                Instant now = Instant.now();
-                Instant expiresAt = jwtService.extractExpiration(accessToken).toInstant();
-
-                if (expiresAt.isAfter(now)
-                        && !revokedTokenRepository.existsByTokenAndExpiresAtAfter(accessToken, now)) {
-                    RevokedToken revokedToken = RevokedToken.builder()
-                            .token(accessToken)
-                            .expiresAt(expiresAt)
-                            .build();
-
-                    revokedTokenRepository.save(revokedToken);
-                }
-
                 email = jwtService.extractUsername(accessToken);
-            } catch (JwtException | IllegalArgumentException ex) {
-                // Ignore malformed token during logout; refresh token revocation still applies.
+            } catch (Exception ignored) {
+                // Ignore malformed token; we still revoke refresh token below.
             }
         }
 
@@ -112,13 +105,13 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
         authAuditService.audit(AuthAuditEventType.LOGOUT, email, ipAddress, "Session closed");
     }
 
+    /**
+     * Access tokens are not stored after logout; validity is only until expiry.
+     * This method is kept for filter compatibility and always returns false.
+     */
     @Override
     public boolean isAccessTokenRevoked(String accessToken) {
-        if (accessToken == null || accessToken.isBlank()) {
-            return false;
-        }
-
-        return revokedTokenRepository.existsByTokenAndExpiresAtAfter(accessToken, Instant.now());
+        return false;
     }
 
     private String createAndStoreRefreshToken(String email) {

@@ -118,6 +118,9 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         }
     }
 
+    /**
+     * Validates: token exists, !used, !expired, attemptCount < maxVerificationAttempts, code match.
+     */
     private PasswordResetToken requireValidOtp(String rawEmail, String rawCode) {
         String email = normalizeEmail(rawEmail);
         String code = normalizeCode(rawCode);
@@ -126,20 +129,21 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         PasswordResetToken activeOtp = passwordResetTokenRepository.findFirstByEmailAndUsedFalseOrderByCreatedAtDesc(email)
                 .orElseThrow(() -> invalidCode());
 
+        if (activeOtp.isUsed()) {
+            throw invalidCode();
+        }
         if (activeOtp.getExpiresAt().isBefore(now)) {
             activeOtp.setUsed(true);
             passwordResetTokenRepository.save(activeOtp);
             throw invalidCode();
         }
-
-        if (!activeOtp.getCode().equals(code)) {
-            registerFailedVerification(activeOtp);
-            throw invalidCode();
-        }
-
         if (activeOtp.getAttemptCount() >= maxVerificationAttempts) {
             activeOtp.setUsed(true);
             passwordResetTokenRepository.save(activeOtp);
+            throw invalidCode();
+        }
+        if (!activeOtp.getCode().equals(code)) {
+            registerFailedVerification(activeOtp);
             throw invalidCode();
         }
 
@@ -157,6 +161,9 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         passwordResetTokenRepository.save(activeOtp);
     }
 
+    /**
+     * Ensures only one active token per user: invalidates any existing unused tokens before creating a new one.
+     */
     private void createOtpAndSendEmail(ForgotPasswordRequest request, AppUser user) {
         invalidateActiveOtps(user.getEmail());
 
@@ -164,6 +171,8 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         token.setEmail(user.getEmail());
         token.setCode(generateOtpCode());
         token.setExpiresAt(Instant.now().plusMillis(passwordResetExpiration));
+        token.setUsed(false);
+        token.setAttemptCount(0);
 
         passwordResetTokenRepository.save(token);
         passwordRecoveryEmailService.sendPasswordRecoveryOtpEmail(user.getEmail(), token.getCode());
