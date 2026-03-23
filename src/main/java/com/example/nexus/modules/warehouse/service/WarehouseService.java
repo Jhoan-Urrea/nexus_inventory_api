@@ -13,5 +13,6 @@ public interface WarehouseService {
     WarehouseResponseDTO findById(Long id);
     List<WarehouseResponseDTO> findAll();
     WarehouseResponseDTO delete(Long id);
+    WarehouseResponseDTO disable(Long id);
 }
 

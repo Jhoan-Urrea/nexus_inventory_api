@@ -13,8 +13,10 @@ import com.example.nexus.modules.warehouse.repository.SectorRepository;
 import com.example.nexus.modules.warehouse.repository.StorageSpaceRepository;
 import com.example.nexus.modules.warehouse.repository.StorageSpaceTypeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -31,19 +33,19 @@ public class StorageSpaceServiceImpl implements StorageSpaceService {
     @Override
     public StorageSpaceResponseDTO create(CreateStorageSpaceRequestDTO dto) {
         Sector sector = sectorRepository.findById(dto.sectorId())
-                .orElseThrow(() -> new RuntimeException("Sector no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sector no encontrado"));
 
         StorageSpaceType type = storageSpaceTypeRepository.findById(dto.storageSpaceTypeId())
-                .orElseThrow(() -> new RuntimeException("Tipo de espacio no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de espacio no encontrado"));
 
         StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
-                .orElseThrow(() -> new RuntimeException("Estado del catálogo no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado del catálogo no encontrado"));
 
         boolean exists = repository.existsBySectorIdAndAisleAndRowAndLevelAndPosition(
                 dto.sectorId(), dto.aisle(), dto.row(), dto.level(), dto.position());
 
         if (exists) {
-            throw new RuntimeException("La ubicación física ya está ocupada en este sector");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La ubicación física ya está ocupada en este sector");
         }
 
         StorageSpace entity = mapper.toEntity(dto, sector, type, status);
@@ -55,7 +57,7 @@ public class StorageSpaceServiceImpl implements StorageSpaceService {
     public StorageSpaceResponseDTO findByCode(String code) {
         return repository.findByCode(code)
                 .map(mapper::toResponseDTO)
-                .orElseThrow(() -> new RuntimeException("Espacio de almacenamiento no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Espacio de almacenamiento no encontrado"));
     }
 
     @Override
@@ -69,7 +71,7 @@ public class StorageSpaceServiceImpl implements StorageSpaceService {
     @Override
     public StorageSpaceResponseDTO update(Long id, UpdateStorageSpaceRequestDTO dto) {
         StorageSpace storageSpace = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Espacio de almacenamiento no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Espacio de almacenamiento no encontrado"));
 
         if (dto.aisle() != null && !dto.aisle().isBlank()) {
             storageSpace.setAisle(dto.aisle());
@@ -94,12 +96,12 @@ public class StorageSpaceServiceImpl implements StorageSpaceService {
         }
         if (dto.storageSpaceTypeId() != null) {
             StorageSpaceType type = storageSpaceTypeRepository.findById(dto.storageSpaceTypeId())
-                    .orElseThrow(() -> new RuntimeException("Tipo de espacio no encontrado"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de espacio no encontrado"));
             storageSpace.setType(type);
         }
         if (dto.statusCatalogId() != null) {
             StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
-                    .orElseThrow(() -> new RuntimeException("Estado del catálogo no encontrado"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado del catálogo no encontrado"));
             storageSpace.setStatus(status);
         }
         if (dto.active() != null) {
@@ -112,7 +114,7 @@ public class StorageSpaceServiceImpl implements StorageSpaceService {
     @Override
     public void delete(Long id) {
         StorageSpace storageSpace = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Espacio de almacenamiento no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Espacio de almacenamiento no encontrado"));
         repository.delete(storageSpace);
     }
 }

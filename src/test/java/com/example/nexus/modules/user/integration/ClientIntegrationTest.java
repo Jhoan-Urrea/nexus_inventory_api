@@ -1,5 +1,20 @@
 package com.example.nexus.modules.user.integration;
 
+import java.util.Set;
+
+import static org.hamcrest.Matchers.hasSize;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.location.entity.Country;
 import com.example.nexus.modules.location.entity.DepartmentRegion;
@@ -13,21 +28,7 @@ import com.example.nexus.modules.user.entity.UserStatus;
 import com.example.nexus.modules.user.repository.AppUserRepository;
 import com.example.nexus.modules.user.repository.ClientRepository;
 import com.example.nexus.modules.user.repository.RoleRepository;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Set;
-
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.example.nexus.testsupport.ClientTestFixtures;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -59,7 +60,7 @@ class ClientIntegrationTest {
     @Test
     void shouldReturnAllUsersForAClient() throws Exception {
         City city = persistCityGraph();
-        Client client = clientRepository.save(Client.builder().name("Acme").build());
+        Client client = clientRepository.save(ClientTestFixtures.newClient("Acme"));
         Role clientRole = roleRepository.save(Role.builder().name("CLIENT").build());
 
         appUserRepository.save(AppUser.builder()
@@ -82,7 +83,7 @@ class ClientIntegrationTest {
                 .roles(Set.of(clientRole))
                 .build());
 
-        mockMvc.perform(get("/clients/{id}/users", client.getId())
+        mockMvc.perform(get("/api/clients/{clientId}/users", client.getId())
                         .with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))

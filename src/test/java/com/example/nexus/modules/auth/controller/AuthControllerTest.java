@@ -10,8 +10,9 @@ import com.example.nexus.modules.auth.dto.RefreshTokenRequest;
 import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
 import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
+import com.example.nexus.config.AppSecurityProperties;
 import com.example.nexus.modules.auth.exception.AuthException;
-import com.example.nexus.modules.auth.exception.AuthExceptionHandler;
+import com.example.nexus.exception.ApiExceptionHandler;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
 import com.example.nexus.modules.auth.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,9 +51,9 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        AuthController authController = new AuthController(authService);
+        AuthController authController = new AuthController(authService, new AppSecurityProperties());
         objectMapper = new ObjectMapper().findAndRegisterModules();
-        AuthExceptionHandler exceptionHandler = new AuthExceptionHandler(new AuthErrorHandlingService(objectMapper));
+        ApiExceptionHandler exceptionHandler = new ApiExceptionHandler(new AuthErrorHandlingService(objectMapper));
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 

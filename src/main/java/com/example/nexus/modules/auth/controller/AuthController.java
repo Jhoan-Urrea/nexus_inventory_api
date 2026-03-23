@@ -1,7 +1,26 @@
 package com.example.nexus.modules.auth.controller;
 
-import com.example.nexus.modules.auth.dto.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.nexus.config.AppSecurityProperties;
+import com.example.nexus.modules.auth.dto.AuthMessageResponse;
+import com.example.nexus.modules.auth.dto.AuthResponse;
+import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
+import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
+import com.example.nexus.modules.auth.dto.LoginRequest;
+import com.example.nexus.modules.auth.dto.LogoutRequest;
+import com.example.nexus.modules.auth.dto.RefreshTokenRequest;
+import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
+import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.service.AuthService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -9,10 +28,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,9 +36,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-
-    @Value("${app.security.trust-forwarded-headers:false}")
-    private boolean trustForwardedHeaders;
+    private final AppSecurityProperties appSecurityProperties;
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión y obtener JWT + refresh token")
@@ -127,7 +140,7 @@ public class AuthController {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        if (trustForwardedHeaders) {
+        if (appSecurityProperties.isTrustForwardedHeaders()) {
             String forwardedFor = request.getHeader("X-Forwarded-For");
             if (forwardedFor != null && !forwardedFor.isBlank()) {
                 return forwardedFor.split(",")[0].trim();

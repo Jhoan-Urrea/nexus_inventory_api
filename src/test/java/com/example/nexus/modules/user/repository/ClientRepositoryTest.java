@@ -6,6 +6,7 @@ import com.example.nexus.modules.location.entity.DepartmentRegion;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.entity.Client;
 import com.example.nexus.modules.user.entity.UserStatus;
+import com.example.nexus.testsupport.ClientTestFixtures;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,7 +100,7 @@ class ClientRepositoryTest {
     }
 
     private Client persistClient(String name) {
-        Client client = Client.builder().name(name).build();
+        Client client = ClientTestFixtures.newClient(name);
         entityManager.persist(client);
         return client;
     }
@@ -112,6 +113,7 @@ class ClientRepositoryTest {
                 .status(UserStatus.ACTIVE)
                 .city(city)
                 .client(client)
+                .roles(java.util.Collections.emptySet())
                 .build();
         entityManager.persist(user);
         return user;

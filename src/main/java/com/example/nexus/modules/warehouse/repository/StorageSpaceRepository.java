@@ -1,6 +1,7 @@
 package com.example.nexus.modules.warehouse.repository;
 
 import com.example.nexus.modules.warehouse.entity.StorageSpace;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -18,7 +19,7 @@ public interface StorageSpaceRepository extends JpaRepository<StorageSpace, Long
     // Para buscar por el código generado (ej: "SEC-A-1-B-01")
     Optional<StorageSpace> findByCode(String code);
 
-    // Para obtener todos los espacios de un sector
+    @EntityGraph(attributePaths = {"sector", "type", "status"})
     List<StorageSpace> findBySectorId(Long sectorId);
 
     // Para buscar espacios por tipo (ej: todos los refrigerados)

@@ -36,7 +36,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<UserResponse> findAllUsers() {
-        return userRepository.findAll()
+        return userRepository.findAllWithRoles()
                 .stream()
                 .map(userMapper::toResponse)
                 .toList();
@@ -44,21 +44,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse findUserById(Long id) {
-        return userRepository.findById(id)
+        return userRepository.findWithRolesById(id)
                 .map(userMapper::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     @Override
     public UserResponse findCurrentUserByEmail(String email) {
-        return userRepository.findByEmail(email)
+        return userRepository.findWithRolesByEmail(email)
                 .map(userMapper::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     @Override
     public List<UserResponse> findUsersByClientId(Long clientId) {
-        return userRepository.findByClientId(clientId)
+        return userRepository.findWithRolesByClientId(clientId)
                 .stream()
                 .map(userMapper::toResponse)
                 .toList();

@@ -25,6 +25,10 @@ public class WarehouseMapper {
     }
 
     public WarehouseResponseDTO toResponseDTO(Warehouse entity) {
+        boolean isActive = Boolean.TRUE.equals(entity.getActive());
+        String operationalStatus = isActive ? "ACTIVE" : "INACTIVE";
+        String operationalLabel = isActive ? "Activo" : "Inactivo";
+
         return new WarehouseResponseDTO(
                 entity.getId(),
                 entity.getCode(),
@@ -32,6 +36,8 @@ public class WarehouseMapper {
                 entity.getTotalCapacityM2(),
                 entity.getLocation(),
                 entity.getActive(),
+                operationalStatus,
+                operationalLabel,
                 entity.getCity() != null ? entity.getCity().getId() : null,
                 entity.getCity() != null ? entity.getCity().getName() : null,
                 entity.getStatus() != null ? entity.getStatus().getDescription() : null,

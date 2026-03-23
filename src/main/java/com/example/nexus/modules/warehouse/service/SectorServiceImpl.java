@@ -11,8 +11,10 @@ import com.example.nexus.modules.warehouse.mapper.SectorMapper;
 import com.example.nexus.modules.warehouse.repository.SectorRepository;
 import com.example.nexus.modules.warehouse.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,13 +31,13 @@ public class SectorServiceImpl implements SectorService {
     @Override
     public SectorResponseDTO create(CreateSectorRequestDTO dto) {
         Warehouse warehouse = warehouseRepository.findById(dto.warehouseId())
-                .orElseThrow(() -> new RuntimeException("Bodega no encontrada"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bodega no encontrada"));
 
         StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
-                .orElseThrow(() -> new RuntimeException("Estado de catálogo no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado de catálogo no encontrado"));
 
         if (repository.existsByCodeAndWarehouseId(dto.code(), dto.warehouseId())) {
-            throw new RuntimeException("El código de sector ya existe en esta bodega");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El código de sector ya existe en esta bodega");
         }
 
         Sector entity = mapper.toEntity(dto, warehouse, status);
@@ -55,7 +57,7 @@ public class SectorServiceImpl implements SectorService {
     @Override
     public SectorResponseDTO update(Long id, UpdateSectorRequestDTO dto) {
         Sector sector = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Sector no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sector no encontrado"));
 
         if (dto.code() != null && !dto.code().isBlank()) {
             sector.setCode(dto.code());
@@ -65,7 +67,7 @@ public class SectorServiceImpl implements SectorService {
         }
         if (dto.statusCatalogId() != null) {
             StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
-                    .orElseThrow(() -> new RuntimeException("Estado de catálogo no encontrado"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado de catálogo no encontrado"));
             sector.setStatus(status);
         }
         if (dto.active() != null) {
@@ -78,7 +80,7 @@ public class SectorServiceImpl implements SectorService {
     @Override
     public void delete(Long id) {
         Sector sector = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Sector no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sector no encontrado"));
         repository.delete(sector);
     }
 }
