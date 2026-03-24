@@ -20,6 +20,8 @@ public class CorsConfig {
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(corsProperties.getMaxAge());
 
+        configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
