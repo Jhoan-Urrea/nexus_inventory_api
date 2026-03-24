@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -182,5 +183,62 @@ class AppUserServiceTest {
         );
 
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+    }
+
+    @Test
+    void shouldBlockUpdatingInactiveUser() {
+        AppUser actor = AppUser.builder()
+                .id(1L)
+                .email("admin@nexus.com")
+                .roles(Set.of(Role.builder().name(RoleConstants.ADMIN).build()))
+                .build();
+        AppUser inactiveTarget = AppUser.builder()
+                .id(2L)
+                .email("user@nexus.com")
+                .status(UserStatus.INACTIVE)
+                .build();
+
+        UpdateUserRequest request = new UpdateUserRequest(
+                "usuario",
+                "user@nexus.com",
+                1L,
+                null,
+                Set.of("CLIENT"),
+                UserStatus.ACTIVE
+        );
+
+        when(userRepository.findWithRolesByEmail("admin@nexus.com")).thenReturn(Optional.of(actor));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(inactiveTarget));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.updateUser(2L, request, "admin@nexus.com")
+        );
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+        verify(userRepository, never()).save(any(AppUser.class));
+    }
+
+    @Test
+    void deleteShouldSoftDeleteUserBySettingInactiveStatus() {
+        AppUser actor = AppUser.builder()
+                .id(1L)
+                .email("admin@nexus.com")
+                .roles(Set.of(Role.builder().name(RoleConstants.ADMIN).build()))
+                .build();
+        AppUser target = AppUser.builder()
+                .id(2L)
+                .email("user@nexus.com")
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        when(userRepository.findWithRolesByEmail("admin@nexus.com")).thenReturn(Optional.of(actor));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        userService.deleteUser(2L, "admin@nexus.com");
+
+        assertEquals(UserStatus.INACTIVE, target.getStatus());
+        verify(userRepository).save(target);
+        verify(userRepository, never()).delete(any(AppUser.class));
     }
 }

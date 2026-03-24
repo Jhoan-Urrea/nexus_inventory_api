@@ -31,6 +31,7 @@ public class WarehouseServiceImpl implements WarehouseService {
     private static final String MSG_STATUS_NOT_FOUND = "Estado de catálogo no encontrado";
     private static final String MSG_TYPE_NOT_FOUND = "Tipo de bodega no encontrado";
     private static final String MSG_WAREHOUSE_NOT_FOUND = "Bodega no encontrada";
+    private static final String MSG_INACTIVE_WAREHOUSE_UPDATE = "No se puede editar una bodega inactiva";
 
     private final WarehouseRepository repository;
     private final WarehouseMapper mapper;
@@ -55,6 +56,9 @@ public class WarehouseServiceImpl implements WarehouseService {
     public WarehouseResponseDTO update(Long id, UpdateWarehouseRequestDTO dto) {
         Warehouse warehouse = repository.findByIdWithAssociations(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_WAREHOUSE_NOT_FOUND));
+        if (Boolean.FALSE.equals(warehouse.getActive())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_INACTIVE_WAREHOUSE_UPDATE);
+        }
 
         applyPartialUpdate(warehouse, dto);
 

@@ -27,6 +27,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+    private static final String MSG_USER_NOT_FOUND = "User not found";
+    private static final String MSG_INACTIVE_USER_UPDATE = "Inactive users cannot be edited";
 
     private final AppUserRepository userRepository;
     private final UserMapper userMapper;
@@ -47,14 +49,14 @@ public class UserServiceImpl implements UserService {
     public UserResponse findUserById(Long id) {
         return userRepository.findWithRolesById(id)
                 .map(userMapper::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND));
     }
 
     @Override
     public UserResponse findCurrentUserByEmail(String email) {
         return userRepository.findWithRolesByEmail(email)
                 .map(userMapper::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND));
     }
 
     @Override
@@ -98,7 +100,10 @@ public class UserServiceImpl implements UserService {
         AppUser actor = requireUserByEmail(actorEmail);
 
         AppUser user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND));
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_INACTIVE_USER_UPDATE);
+        }
 
         if (userRepository.existsByUsernameAndIdNot(request.username(), id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already registered");
@@ -128,13 +133,16 @@ public class UserServiceImpl implements UserService {
         AppUser actor = requireUserByEmail(actorEmail);
 
         AppUser user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND));
 
         if (actor.getId().equals(user.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrators cannot delete themselves");
         }
 
-        userRepository.delete(user);
+        if (user.getStatus() != UserStatus.INACTIVE) {
+            user.setStatus(UserStatus.INACTIVE);
+            userRepository.save(user);
+        }
     }
 
     private City loadCity(Long cityId) {
