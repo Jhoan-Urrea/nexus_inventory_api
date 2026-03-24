@@ -1,14 +1,17 @@
 package com.example.nexus.modules.auth.security;
 
-import com.example.nexus.modules.auth.service.AccountStateService;
-import com.example.nexus.modules.auth.service.TokenLifecycleService;
-import io.jsonwebtoken.MalformedJwtException;
-import jakarta.servlet.FilterChain;
+import java.util.UUID;
+
 import org.junit.jupiter.api.AfterEach;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -17,13 +20,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.UUID;
+import com.example.nexus.modules.auth.service.AccountStateService;
+import com.example.nexus.modules.auth.service.TokenLifecycleService;
+import com.example.nexus.config.AuthCookieProperties;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import io.jsonwebtoken.MalformedJwtException;
+import jakarta.servlet.FilterChain;
 
 @ExtendWith(MockitoExtension.class)
 class JwtAuthenticationFilterTest {
@@ -41,13 +43,22 @@ class JwtAuthenticationFilterTest {
     private AccountStateService accountStateService;
 
     @Mock
+    private AuthCookieProperties authCookieProperties;
+
+    @Mock
     private FilterChain filterChain;
 
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setUp() {
-        filter = new JwtAuthenticationFilter(jwtService, userDetailsService, tokenLifecycleService, accountStateService);
+        filter = new JwtAuthenticationFilter(
+                jwtService,
+                userDetailsService,
+                tokenLifecycleService,
+                accountStateService,
+                authCookieProperties
+        );
         SecurityContextHolder.clearContext();
     }
 

@@ -1,10 +1,12 @@
 package com.example.nexus.modules.auth.security;
 
+import com.example.nexus.config.AuthCookieProperties;
 import com.example.nexus.modules.auth.service.AccountStateService;
 import com.example.nexus.modules.auth.service.TokenLifecycleService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final CustomUserDetailsService userDetailsService;
     private final TokenLifecycleService tokenLifecycleService;
     private final AccountStateService accountStateService;
+    private final AuthCookieProperties authCookieProperties;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -65,14 +68,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        final String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        final String jwt = extractJwt(request);
+        if (jwt == null || jwt.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        final String jwt = authHeader.substring(7);
 
         if (tokenLifecycleService.isAccessTokenRevoked(jwt)) {
             SecurityContextHolder.clearContext();
@@ -126,5 +126,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void setAuthError(HttpServletRequest request, String message) {
         request.setAttribute(AUTH_ERROR_MESSAGE_ATTR, message);
+    }
+
+    private String extractJwt(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null || cookies.length == 0) {
+            return null;
+        }
+        String accessTokenCookieName = authCookieProperties.getAccessTokenName();
+        for (Cookie cookie : cookies) {
+            if (accessTokenCookieName.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
 }
