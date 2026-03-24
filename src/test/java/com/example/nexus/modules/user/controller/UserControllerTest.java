@@ -72,4 +72,24 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.email").value("cliente@empresa.com"))
                 .andExpect(jsonPath("$.clientId").value(10));
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postUsersShouldRejectRolesAsPlainString() throws Exception {
+        String payload = """
+                {
+                  "username": "cliente1",
+                  "email": "cliente@empresa.com",
+                  "password": "123456",
+                  "cityId": 1,
+                  "clientId": 10,
+                  "roles": "CLIENT"
+                }
+                """;
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
+    }
 }

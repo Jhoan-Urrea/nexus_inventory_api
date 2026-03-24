@@ -12,6 +12,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -86,6 +87,22 @@ public class ApiExceptionHandler {
 
         if (message.isBlank()) {
             message = "Validation error";
+        }
+
+        return authErrorHandlingService.build(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public AuthErrorResponse handleMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        Throwable mostSpecificCause = ex.getMostSpecificCause();
+        String rawMessage = mostSpecificCause != null
+                ? mostSpecificCause.getMessage()
+                : ex.getMessage();
+
+        String message = "Malformed request body";
+        if (rawMessage != null && rawMessage.contains("roles")) {
+            message = "roles must be an array of strings";
         }
 
         return authErrorHandlingService.build(HttpStatus.BAD_REQUEST, message, request.getRequestURI());

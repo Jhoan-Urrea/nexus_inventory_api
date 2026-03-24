@@ -11,6 +11,7 @@ import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
 import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.config.AppSecurityProperties;
+import com.example.nexus.config.AuthCookieProperties;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.exception.ApiExceptionHandler;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
@@ -30,6 +31,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -51,7 +53,11 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        AuthController authController = new AuthController(authService, new AppSecurityProperties());
+        AuthController authController = new AuthController(
+                authService,
+                new AppSecurityProperties(),
+                new AuthCookieProperties()
+        );
         objectMapper = new ObjectMapper().findAndRegisterModules();
         ApiExceptionHandler exceptionHandler = new ApiExceptionHandler(new AuthErrorHandlingService(objectMapper));
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
@@ -74,8 +80,9 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("access-token"))
-                .andExpect(jsonPath("$.refreshToken").value("refresh-token"));
+                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
+                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
 
         verify(authService).login(any(), anyString());
     }
@@ -110,10 +117,26 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("new-access"))
-                .andExpect(jsonPath("$.refreshToken").value("new-refresh"));
+                .andExpect(jsonPath("$.accessToken").value("new-access"))
+                .andExpect(jsonPath("$.refreshToken").value("new-refresh"))
+                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
 
         verify(authService).refreshToken("old-refresh", "127.0.0.1");
+    }
+
+    @Test
+    void refreshShouldReadRefreshTokenFromCookieWhenBodyIsMissing() throws Exception {
+        when(authService.refreshToken(anyString(), anyString()))
+                .thenReturn(new AuthResponse("cookie-access", "cookie-refresh"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new jakarta.servlet.http.Cookie("refresh_token", "cookie-old-refresh")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("cookie-access"))
+                .andExpect(jsonPath("$.refreshToken").value("cookie-refresh"))
+                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
+
+        verify(authService).refreshToken("cookie-old-refresh", "127.0.0.1");
     }
 
     @Test
@@ -128,7 +151,8 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Logout successful"));
+                .andExpect(jsonPath("$.message").value("Logout successful"))
+                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
 
         verify(authService).logout("access-1", "refresh-1", "127.0.0.1");
     }

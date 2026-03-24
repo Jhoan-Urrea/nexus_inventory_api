@@ -2,6 +2,9 @@ package com.example.nexus.modules.auth.controller;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -9,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.nexus.config.AppSecurityProperties;
+import com.example.nexus.config.AuthCookieProperties;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
@@ -25,7 +29,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -37,6 +43,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final AppSecurityProperties appSecurityProperties;
+    private final AuthCookieProperties authCookieProperties;
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión y obtener JWT + refresh token")
@@ -45,8 +52,14 @@ public class AuthController {
             @ApiResponse(responseCode = "401", description = "Credenciales inválidas"),
             @ApiResponse(responseCode = "429", description = "Demasiados intentos")
     })
-    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        return authService.login(request, resolveClientIp(httpRequest));
+    public AuthResponse login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
+    ) {
+        AuthResponse authResponse = authService.login(request, resolveClientIp(httpRequest));
+        attachAuthCookies(response, authResponse);
+        return authResponse;
     }
 
     @PostMapping("/register")
@@ -67,8 +80,18 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Refresh token inválido"),
             @ApiResponse(responseCode = "401", description = "No autorizado")
     })
-    public AuthResponse refreshToken(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
-        return authService.refreshToken(request.refreshToken(), resolveClientIp(httpRequest));
+    public AuthResponse refreshToken(
+            @RequestBody(required = false) RefreshTokenRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
+    ) {
+        if (request != null && (request.refreshToken() == null || request.refreshToken().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "refreshToken must not be blank");
+        }
+        String refreshToken = request != null ? request.refreshToken() : readCookie(httpRequest, authCookieProperties.getRefreshTokenName());
+        AuthResponse authResponse = authService.refreshToken(refreshToken, resolveClientIp(httpRequest));
+        attachAuthCookies(response, authResponse);
+        return authResponse;
     }
 
     @PostMapping("/logout")
@@ -79,12 +102,17 @@ public class AuthController {
     public AuthMessageResponse logout(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody(required = false) LogoutRequest request,
-            HttpServletRequest httpRequest
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
     ) {
         String accessToken = extractBearerToken(authorization);
-        String refreshToken = request != null ? request.refreshToken() : null;
+        String refreshToken = request != null && request.refreshToken() != null
+                ? request.refreshToken()
+                : readCookie(httpRequest, authCookieProperties.getRefreshTokenName());
 
-        return authService.logout(accessToken, refreshToken, resolveClientIp(httpRequest));
+        AuthMessageResponse authMessageResponse = authService.logout(accessToken, refreshToken, resolveClientIp(httpRequest));
+        clearAuthCookies(response);
+        return authMessageResponse;
     }
 
     @PostMapping("/password/forgot")
@@ -147,5 +175,55 @@ public class AuthController {
             }
         }
         return request.getRemoteAddr();
+    }
+
+    private void attachAuthCookies(HttpServletResponse response, AuthResponse authResponse) {
+        response.addHeader("Set-Cookie", buildCookie(
+                authCookieProperties.getAccessTokenName(),
+                authResponse.accessToken(),
+                authCookieProperties.getAccessTokenMaxAgeSeconds()
+        ));
+        response.addHeader("Set-Cookie", buildCookie(
+                authCookieProperties.getRefreshTokenName(),
+                authResponse.refreshToken(),
+                authCookieProperties.getRefreshTokenMaxAgeSeconds()
+        ));
+    }
+
+    private void clearAuthCookies(HttpServletResponse response) {
+        response.addHeader("Set-Cookie", buildCookie(
+                authCookieProperties.getAccessTokenName(),
+                "",
+                0
+        ));
+        response.addHeader("Set-Cookie", buildCookie(
+                authCookieProperties.getRefreshTokenName(),
+                "",
+                0
+        ));
+    }
+
+    private String buildCookie(String name, String value, long maxAgeSeconds) {
+        return ResponseCookie.from(name, value == null ? "" : value)
+                .httpOnly(authCookieProperties.isHttpOnly())
+                .secure(authCookieProperties.isSecure())
+                .sameSite(authCookieProperties.getSameSite())
+                .path(authCookieProperties.getPath())
+                .maxAge(maxAgeSeconds)
+                .build()
+                .toString();
+    }
+
+    private String readCookie(HttpServletRequest request, String cookieName) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null || cookies.length == 0) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (cookieName.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
 }

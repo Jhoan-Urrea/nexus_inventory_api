@@ -9,6 +9,7 @@ import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.entity.Client;
 import com.example.nexus.modules.user.entity.Role;
 import com.example.nexus.modules.user.entity.UserStatus;
+import com.example.nexus.modules.user.constants.RoleConstants;
 import com.example.nexus.modules.user.mapper.UserMapper;
 import com.example.nexus.modules.user.repository.AppUserRepository;
 import com.example.nexus.modules.user.repository.ClientRepository;
@@ -93,7 +94,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+    public UserResponse updateUser(Long id, UpdateUserRequest request, String actorEmail) {
+        AppUser actor = requireUserByEmail(actorEmail);
 
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -108,21 +110,29 @@ public class UserServiceImpl implements UserService {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
                 });
 
+        Set<Role> requestedRoles = resolveRoles(request.roles());
+        validateSelfAdministrationGuards(actor, user, request.status(), requestedRoles);
+
         user.setUsername(request.username());
         user.setEmail(request.email());
         user.setCity(loadCity(request.cityId()));
         user.setClient(resolveClient(request.clientId()));
-        user.setRoles(resolveRoles(request.roles()));
+        user.setRoles(requestedRoles);
         user.setStatus(request.status());
 
         return userMapper.toResponse(userRepository.save(user));
     }
 
     @Override
-    public void deleteUser(Long id) {
+    public void deleteUser(Long id, String actorEmail) {
+        AppUser actor = requireUserByEmail(actorEmail);
 
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (actor.getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrators cannot delete themselves");
+        }
 
         userRepository.delete(user);
     }
@@ -150,5 +160,31 @@ public class UserServiceImpl implements UserService {
                                 "Role not found: " + roleName
                         )))
                 .collect(Collectors.toSet());
+    }
+
+    private AppUser requireUserByEmail(String email) {
+        return userRepository.findWithRolesByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Actor user not found"));
+    }
+
+    private void validateSelfAdministrationGuards(
+            AppUser actor,
+            AppUser targetUser,
+            UserStatus requestedStatus,
+            Set<Role> requestedRoles
+    ) {
+        if (!actor.getId().equals(targetUser.getId())) {
+            return;
+        }
+        if (!hasRole(requestedRoles, RoleConstants.ADMIN)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrators cannot remove their own ADMIN role");
+        }
+        if (requestedStatus != UserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrators cannot deactivate or block themselves");
+        }
+    }
+
+    private boolean hasRole(Set<Role> roles, String roleName) {
+        return roles.stream().anyMatch(role -> roleName.equalsIgnoreCase(role.getName()));
     }
 }

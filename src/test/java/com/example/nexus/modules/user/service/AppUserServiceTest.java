@@ -2,11 +2,13 @@ package com.example.nexus.modules.user.service;
 
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.user.dto.CreateUserRequest;
+import com.example.nexus.modules.user.dto.UpdateUserRequest;
 import com.example.nexus.modules.user.dto.UserResponse;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.entity.Client;
 import com.example.nexus.modules.user.entity.Role;
 import com.example.nexus.modules.user.entity.UserStatus;
+import com.example.nexus.modules.user.constants.RoleConstants;
 import com.example.nexus.modules.user.mapper.UserMapper;
 import com.example.nexus.modules.user.repository.AppUserRepository;
 import com.example.nexus.modules.user.repository.ClientRepository;
@@ -129,5 +131,56 @@ class AppUserServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         assertEquals("Client not found", ex.getReason());
+    }
+
+    @Test
+    void shouldBlockAdminFromRemovingOwnAdminRole() {
+        AppUser actor = AppUser.builder()
+                .id(1L)
+                .email("admin@nexus.com")
+                .roles(Set.of(Role.builder().name(RoleConstants.ADMIN).build()))
+                .build();
+        AppUser target = AppUser.builder().id(1L).email("admin@nexus.com").build();
+
+        UpdateUserRequest request = new UpdateUserRequest(
+                "admin",
+                "admin@nexus.com",
+                1L,
+                null,
+                Set.of("CLIENT"),
+                UserStatus.ACTIVE
+        );
+
+        when(userRepository.findWithRolesByEmail("admin@nexus.com")).thenReturn(Optional.of(actor));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(target));
+        when(userRepository.existsByUsernameAndIdNot("admin", 1L)).thenReturn(false);
+        when(userRepository.findByEmail("admin@nexus.com")).thenReturn(Optional.of(target));
+        when(roleRepository.findByName("CLIENT")).thenReturn(Optional.of(Role.builder().name("CLIENT").build()));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.updateUser(1L, request, "admin@nexus.com")
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+    }
+
+    @Test
+    void shouldBlockAdminFromDeletingSelf() {
+        AppUser actor = AppUser.builder()
+                .id(1L)
+                .email("admin@nexus.com")
+                .roles(Set.of(Role.builder().name(RoleConstants.ADMIN).build()))
+                .build();
+
+        when(userRepository.findWithRolesByEmail("admin@nexus.com")).thenReturn(Optional.of(actor));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(actor));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.deleteUser(1L, "admin@nexus.com")
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
     }
 }
