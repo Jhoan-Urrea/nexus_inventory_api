@@ -41,14 +41,14 @@ public class WarehouseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
     @Operation(summary = "Listar bodegas")
     public ResponseEntity<List<WarehouseResponseDTO>> getAll() {
         return ResponseEntity.ok(warehouseService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
     @Operation(summary = "Obtener bodega por id")
     public ResponseEntity<WarehouseResponseDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(warehouseService.findById(id));
@@ -65,9 +65,28 @@ public class WarehouseController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Eliminar bodega")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        warehouseService.delete(id);
-        return ResponseEntity.noContent().build();
+    @Operation(
+            summary = "Inhabilitar bodega (borrado lógico)",
+            description = "No elimina el registro: pone active=false y devuelve el estado actualizado para que el cliente pueda refrescar UI sin un GET adicional."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bodega inhabilitada; cuerpo con operationalStatus/operationalLabel actualizados"),
+            @ApiResponse(responseCode = "404", description = "Bodega no encontrada"),
+            @ApiResponse(responseCode = "403", description = "Sin permisos")
+    })
+    public ResponseEntity<WarehouseResponseDTO> delete(@PathVariable Long id) {
+        return ResponseEntity.ok(warehouseService.delete(id));
+    }
+
+    @PatchMapping("/{id}/disable")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Inhabilitar bodega (borrado lógico)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bodega inhabilitada"),
+            @ApiResponse(responseCode = "404", description = "Bodega no encontrada"),
+            @ApiResponse(responseCode = "403", description = "Sin permisos")
+    })
+    public ResponseEntity<WarehouseResponseDTO> disable(@PathVariable Long id) {
+        return ResponseEntity.ok(warehouseService.disable(id));
     }
 }

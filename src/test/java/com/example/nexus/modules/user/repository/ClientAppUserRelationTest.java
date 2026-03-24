@@ -6,6 +6,7 @@ import com.example.nexus.modules.location.entity.DepartmentRegion;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.entity.Client;
 import com.example.nexus.modules.user.entity.UserStatus;
+import com.example.nexus.testsupport.ClientTestFixtures;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,7 @@ class ClientAppUserRelationTest {
     @Test
     void shouldValidateClientOneToManyAppUserFlow() {
         City city = persistCityGraph();
-        Client client = clientRepository.save(Client.builder().name("Cliente Demo").build());
+        Client client = clientRepository.save(ClientTestFixtures.newClient("Cliente Demo"));
 
         AppUser u1 = AppUser.builder()
                 .username("cliente1")
@@ -45,6 +46,7 @@ class ClientAppUserRelationTest {
                 .status(UserStatus.ACTIVE)
                 .city(city)
                 .client(client)
+                .roles(java.util.Collections.emptySet())
                 .build();
 
         AppUser u2 = AppUser.builder()
@@ -54,6 +56,7 @@ class ClientAppUserRelationTest {
                 .status(UserStatus.ACTIVE)
                 .city(city)
                 .client(client)
+                .roles(java.util.Collections.emptySet())
                 .build();
 
         appUserRepository.saveAll(List.of(u1, u2));

@@ -26,7 +26,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
-        AppUser user = appUserRepository.findByEmail(email)
+        AppUser user = appUserRepository.findWithRolesByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         Set<Role> roles = user.getRoles() == null ? Collections.emptySet() : user.getRoles();

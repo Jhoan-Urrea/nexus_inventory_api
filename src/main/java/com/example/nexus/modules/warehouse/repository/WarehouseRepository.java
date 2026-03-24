@@ -1,7 +1,10 @@
 package com.example.nexus.modules.warehouse.repository;
 
 import com.example.nexus.modules.warehouse.entity.Warehouse;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,7 +21,12 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
 
     List<Warehouse> findByActive(Boolean active);
 
+    @EntityGraph(attributePaths = {"city", "status", "warehouseType"})
     List<Warehouse> findAllByOrderByNameAsc();
+
+    @EntityGraph(attributePaths = {"city", "status", "warehouseType"})
+    @Query("SELECT w FROM Warehouse w WHERE w.id = :id")
+    Optional<Warehouse> findByIdWithAssociations(@Param("id") Long id);
 
     Optional<Warehouse> findByCode(String code);
 

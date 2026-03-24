@@ -5,6 +5,7 @@ import com.example.nexus.modules.auth.security.AuthAuthenticationEntryPoint;
 import com.example.nexus.modules.auth.security.CustomUserDetailsService;
 import com.example.nexus.modules.auth.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,12 +25,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @RequiredArgsConstructor
 @EnableMethodSecurity
+@EnableConfigurationProperties(AppSecurityProperties.class)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
     private final AuthAuthenticationEntryPoint authAuthenticationEntryPoint;
     private final AuthAccessDeniedHandler authAccessDeniedHandler;
+    private final AppSecurityProperties appSecurityProperties;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -58,20 +61,32 @@ public class SecurityConfig {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/api/health",
-                                "/error",
-                                "/actuator/**",
-                                "/api/locations/**",
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                    auth.requestMatchers("/api/auth/**", "/api/health", "/error").permitAll();
+
+                    if (appSecurityProperties.isPermitPublicLocations()) {
+                        auth.requestMatchers("/api/locations/**").permitAll();
+                    }
+                    if (appSecurityProperties.isPermitSwaggerDocumentation()) {
+                        auth.requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                        ).permitAll();
+                    }
+
+                    if (appSecurityProperties.isActuatorAdminOnly()) {
+                        if (appSecurityProperties.isActuatorHealthPublic()) {
+                            auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
+                        }
+                        auth.requestMatchers("/actuator/**").hasRole("ADMIN");
+                    } else {
+                        auth.requestMatchers("/actuator/**").permitAll();
+                    }
+
+                    auth.anyRequest().authenticated();
+                })
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )

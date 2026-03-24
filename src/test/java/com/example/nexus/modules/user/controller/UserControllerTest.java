@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -37,6 +38,7 @@ class UserControllerTest {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void postUsersShouldCreateUserWithClientAssociation() throws Exception {
         when(userService.createUser(any()))
                 .thenReturn(new UserResponse(
@@ -62,12 +64,32 @@ class UserControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/users")
+        mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("cliente1"))
                 .andExpect(jsonPath("$.email").value("cliente@empresa.com"))
                 .andExpect(jsonPath("$.clientId").value(10));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postUsersShouldRejectRolesAsPlainString() throws Exception {
+        String payload = """
+                {
+                  "username": "cliente1",
+                  "email": "cliente@empresa.com",
+                  "password": "123456",
+                  "cityId": 1,
+                  "clientId": 10,
+                  "roles": "CLIENT"
+                }
+                """;
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -18,7 +18,7 @@ public interface UserService {
 
     UserResponse createUser(CreateUserRequest request);
 
-    UserResponse updateUser(Long id, UpdateUserRequest request);
+    UserResponse updateUser(Long id, UpdateUserRequest request, String actorEmail);
 
-    void deleteUser(Long id);
+    void deleteUser(Long id, String actorEmail);
 }

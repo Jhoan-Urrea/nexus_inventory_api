@@ -1,5 +1,12 @@
 package com.example.nexus.modules.warehouse.service;
 
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.location.repository.CityRepository;
 import com.example.nexus.modules.state.entity.StatusCatalog;
@@ -12,16 +19,20 @@ import com.example.nexus.modules.warehouse.entity.WarehouseType;
 import com.example.nexus.modules.warehouse.mapper.WarehouseMapper;
 import com.example.nexus.modules.warehouse.repository.WarehouseRepository;
 import com.example.nexus.modules.warehouse.repository.WarehouseTypeRepository;
-import org.springframework.transaction.annotation.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class WarehouseServiceImpl implements WarehouseService {
+
+    private static final String MSG_CITY_NOT_FOUND = "Ciudad no encontrada";
+    private static final String MSG_STATUS_NOT_FOUND = "Estado de catálogo no encontrado";
+    private static final String MSG_TYPE_NOT_FOUND = "Tipo de bodega no encontrado";
+    private static final String MSG_WAREHOUSE_NOT_FOUND = "Bodega no encontrada";
+    private static final String MSG_INACTIVE_WAREHOUSE_UPDATE = "No se puede editar una bodega inactiva";
+
     private final WarehouseRepository repository;
     private final WarehouseMapper mapper;
     private final CityRepository cityRepository;
@@ -31,16 +42,11 @@ public class WarehouseServiceImpl implements WarehouseService {
     @Override
     public WarehouseResponseDTO create(CreateWarehouseRequestDTO dto) {
         if (repository.findByCode(dto.code()).isPresent()) {
-            throw new RuntimeException("El código de bodega ya existe");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El código de bodega ya existe");
         }
-        City city = cityRepository.findById(dto.cityId())
-                .orElseThrow(() -> new RuntimeException("Ciudad no encontrada"));
-
-        StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
-                .orElseThrow(() -> new RuntimeException("Estado de catálogo no encontrado"));
-
-        WarehouseType type = warehouseTypeRepository.findById(dto.warehouseTypeId())
-                .orElseThrow(() -> new RuntimeException("Tipo de bodega no encontrado"));
+        City city = requireCity(dto.cityId());
+        StatusCatalog status = requireStatusCatalog(dto.statusCatalogId());
+        WarehouseType type = requireWarehouseType(dto.warehouseTypeId());
 
         Warehouse entity = mapper.toEntity(dto, city, status, type);
         return mapper.toResponseDTO(repository.save(entity));
@@ -48,9 +54,50 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     public WarehouseResponseDTO update(Long id, UpdateWarehouseRequestDTO dto) {
-        Warehouse warehouse = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Bodega no encontrada"));
+        Warehouse warehouse = repository.findByIdWithAssociations(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_WAREHOUSE_NOT_FOUND));
+        if (Boolean.FALSE.equals(warehouse.getActive())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_INACTIVE_WAREHOUSE_UPDATE);
+        }
 
+        applyPartialUpdate(warehouse, dto);
+
+        return mapper.toResponseDTO(repository.save(warehouse));
+    }
+
+    @Override
+    public WarehouseResponseDTO delete(Long id) {
+        return disable(id);
+    }
+
+    @Override
+    public WarehouseResponseDTO disable(Long id) {
+        Warehouse warehouse = repository.findByIdWithAssociations(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_WAREHOUSE_NOT_FOUND));
+
+        warehouse.setActive(false);
+        syncNonOperationalStatusFromCatalog(warehouse);
+
+        return mapper.toResponseDTO(repository.save(warehouse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WarehouseResponseDTO findById(Long id) {
+        return repository.findByIdWithAssociations(id)
+                .map(mapper::toResponseDTO)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_WAREHOUSE_NOT_FOUND));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WarehouseResponseDTO> findAll() {
+        return repository.findAllByOrderByNameAsc().stream()
+                .map(mapper::toResponseDTO)
+                .toList();
+    }
+
+    private void applyPartialUpdate(Warehouse warehouse, UpdateWarehouseRequestDTO dto) {
         if (dto.name() != null && !dto.name().isBlank()) {
             warehouse.setName(dto.name());
         }
@@ -61,48 +108,50 @@ public class WarehouseServiceImpl implements WarehouseService {
             warehouse.setTotalCapacityM2(dto.totalCapacityM2());
         }
         if (dto.cityId() != null) {
-            City city = cityRepository.findById(dto.cityId())
-                    .orElseThrow(() -> new RuntimeException("Ciudad no encontrada"));
-            warehouse.setCity(city);
+            warehouse.setCity(requireCity(dto.cityId()));
         }
         if (dto.statusCatalogId() != null) {
-            StatusCatalog status = statusCatalogRepository.findById(dto.statusCatalogId())
-                    .orElseThrow(() -> new RuntimeException("Estado de catálogo no encontrado"));
-            warehouse.setStatus(status);
+            warehouse.setStatus(requireStatusCatalog(dto.statusCatalogId()));
         }
         if (dto.warehouseTypeId() != null) {
-            WarehouseType type = warehouseTypeRepository.findById(dto.warehouseTypeId())
-                    .orElseThrow(() -> new RuntimeException("Tipo de bodega no encontrado"));
-            warehouse.setWarehouseType(type);
+            warehouse.setWarehouseType(requireWarehouseType(dto.warehouseTypeId()));
         }
         if (dto.active() != null) {
             warehouse.setActive(dto.active());
         }
-
-        return mapper.toResponseDTO(repository.save(warehouse));
     }
 
-    @Override
-    public WarehouseResponseDTO delete(Long id) {
-        Warehouse warehouse = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Bodega no encontrada"));
-        repository.delete(warehouse);
-        return mapper.toResponseDTO(warehouse);
+    /**
+     * Si el frontend usa la descripción del catálogo en lugar de {@code active}, al deshabilitar
+     * intentamos alinear el status a una entrada no operacional del mismo tipo de entidad.
+     */
+    private void syncNonOperationalStatusFromCatalog(Warehouse warehouse) {
+        if (warehouse.getStatus() == null || warehouse.getStatus().getEntityType() == null) {
+            return;
+        }
+        Long entityTypeId = warehouse.getStatus().getEntityType().getId();
+        if (entityTypeId == null) {
+            return;
+        }
+        statusCatalogRepository.findByEntityTypeId(entityTypeId)
+                .stream()
+                .filter(s -> s != null && s.getIsOperational() != null && !s.getIsOperational())
+                .findFirst()
+                .ifPresent(warehouse::setStatus);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public WarehouseResponseDTO findById(Long id) {
-        return repository.findById(id)
-                .map(mapper::toResponseDTO)
-                .orElseThrow(() -> new RuntimeException("Bodega no encontrada"));
+    private City requireCity(Long id) {
+        return cityRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, MSG_CITY_NOT_FOUND));
     }
 
-    @Override
-    public List<WarehouseResponseDTO> findAll() {
-        return repository.findAllByOrderByNameAsc().stream()
-                .map(mapper::toResponseDTO)
-                .toList();
+    private StatusCatalog requireStatusCatalog(Long id) {
+        return statusCatalogRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, MSG_STATUS_NOT_FOUND));
     }
-    // ... implementar otros métodos
+
+    private WarehouseType requireWarehouseType(Long id) {
+        return warehouseTypeRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, MSG_TYPE_NOT_FOUND));
+    }
 }

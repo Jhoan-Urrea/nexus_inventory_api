@@ -12,8 +12,10 @@ import com.example.nexus.modules.warehouse.repository.SectorRepository;
 import com.example.nexus.modules.warehouse.repository.StorageSpaceRepository;
 import com.example.nexus.modules.warehouse.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,8 +48,8 @@ public class MaintenanceOrderServiceImpl implements MaintenanceOrderService {
 
     @Override
     public MaintenanceOrderResponseDTO completeOrder(Long id) {
-        MaintenanceOrder order = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
+        MaintenanceOrder order = repository.findByIdWithAssociations(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Orden no encontrada"));
 
         order.setStatus("COMPLETED");
         order.setCompletedDate(LocalDateTime.now());
@@ -66,7 +68,9 @@ public class MaintenanceOrderServiceImpl implements MaintenanceOrderService {
         if (dto.storageSpaceId() != null) count++;
 
         if (count != 1) {
-            throw new IllegalArgumentException("Debe seleccionar exactamente un nivel (Bodega, Sector o Espacio) para el mantenimiento.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Debe seleccionar exactamente un nivel (Bodega, Sector o Espacio) para el mantenimiento.");
         }
     }
 }
