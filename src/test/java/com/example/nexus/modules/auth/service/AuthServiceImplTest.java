@@ -270,7 +270,7 @@ class AuthServiceImplTest {
     }
 
     private String samplePassword() {
-        return "A1" + UUID.randomUUID().toString().replace("-", "");
+        return "A1!" + UUID.randomUUID().toString().replace("-", "");
     }
 
     private String sampleHash() {

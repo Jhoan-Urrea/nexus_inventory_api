@@ -11,6 +11,7 @@ import com.example.nexus.modules.auth.dto.RegisterRequest;
 import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.exception.AuthException;
+import com.example.nexus.modules.auth.exception.PasswordPolicyException;
 import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
 import com.example.nexus.modules.auth.service.AuthService;
@@ -148,6 +149,25 @@ class AuthControllerTest {
     }
 
     @Test
+    void registerShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
+        when(authService.register(any(), anyString()))
+                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
+
+        String payload = toJson(new RegisterRequest(
+                "user",
+                sampleEmail(),
+                samplePasswordWithoutSpecial(),
+                1L
+        ));
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
+    }
+
+    @Test
     void refreshShouldReadRefreshTokenOnlyFromCookie() throws Exception {
         when(authService.refreshToken(anyString(), anyString()))
                 .thenReturn(new AuthTokens("new-access", "new-refresh"));
@@ -241,6 +261,21 @@ class AuthControllerTest {
     }
 
     @Test
+    void changePasswordShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
+        when(authService.changePassword(anyString(), any(), anyString()))
+                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
+
+        String payload = toJson(new ChangePasswordRequest(sampleValidPassword(), samplePasswordWithoutSpecial()));
+
+        mockMvc.perform(post("/api/auth/password/change")
+                        .principal(new UsernamePasswordAuthenticationToken(sampleEmail(), "n/a"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
+    }
+
+    @Test
     void forgotPasswordShouldDelegateToService() throws Exception {
         when(authService.forgotPassword(any(), anyString()))
                 .thenReturn(new AuthMessageResponse("If the email exists, recovery instructions were generated"));
@@ -288,6 +323,20 @@ class AuthControllerTest {
         verify(authService).resetPassword(any(), anyString());
     }
 
+    @Test
+    void resetPasswordShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
+        when(authService.resetPassword(any(), anyString()))
+                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
+
+        String payload = toJson(new ResetPasswordRequest(sampleEmail(), sampleOtp(), samplePasswordWithoutSpecial()));
+
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
+    }
+
     private String toJson(Object request) throws Exception {
         return objectMapper.writeValueAsString(request);
     }
@@ -297,7 +346,11 @@ class AuthControllerTest {
     }
 
     private String sampleValidPassword() {
-        return "A1" + UUID.randomUUID().toString().replace("-", "");
+        return "A1!" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private String samplePasswordWithoutSpecial() {
+        return new String(new char[]{'P', 'a', 's', 's', 'w', 'o', 'r', 'd', '1'});
     }
 
     private String sampleOtp() {

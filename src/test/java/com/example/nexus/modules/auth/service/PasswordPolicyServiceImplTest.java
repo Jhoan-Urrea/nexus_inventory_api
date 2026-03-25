@@ -1,6 +1,6 @@
 package com.example.nexus.modules.auth.service;
 
-import com.example.nexus.modules.auth.exception.AuthException;
+import com.example.nexus.modules.auth.exception.PasswordPolicyException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,31 +28,31 @@ class PasswordPolicyServiceImplTest {
 
     @Test
     void nullPasswordShouldFail() {
-        assertThrows(AuthException.class, () -> passwordPolicyService.validate(null));
+        assertThrows(PasswordPolicyException.class, () -> passwordPolicyService.validate(null));
     }
 
     @Test
     void shortPasswordShouldFail() {
-        assertThrows(AuthException.class, () -> passwordPolicyService.validate(chars('A', 'a', '1', '!')));
+        assertThrows(PasswordPolicyException.class, () -> passwordPolicyService.validate(chars('A', 'a', '1', '!')));
     }
 
     @Test
     void missingUppercaseShouldFail() {
-        assertThrows(AuthException.class, () -> passwordPolicyService.validate(chars('a', 'b', 'c', 'd', 'e', 'f', '1', '!')));
+        assertThrows(PasswordPolicyException.class, () -> passwordPolicyService.validate(chars('a', 'b', 'c', 'd', 'e', 'f', '1', '!')));
     }
 
     @Test
     void missingLowercaseShouldFail() {
-        assertThrows(AuthException.class, () -> passwordPolicyService.validate(chars('A', 'B', 'C', 'D', 'E', 'F', '1', '!')));
+        assertThrows(PasswordPolicyException.class, () -> passwordPolicyService.validate(chars('A', 'B', 'C', 'D', 'E', 'F', '1', '!')));
     }
 
     @Test
     void missingDigitShouldFail() {
-        assertThrows(AuthException.class, () -> passwordPolicyService.validate(chars('A', 'b', 'c', 'd', 'e', 'f', 'g', '!')));
+        assertThrows(PasswordPolicyException.class, () -> passwordPolicyService.validate(chars('A', 'b', 'c', 'd', 'e', 'f', 'g', '!')));
     }
 
     @Test
     void missingSpecialCharacterShouldFail() {
-        assertThrows(AuthException.class, () -> passwordPolicyService.validate(chars('A', 'b', 'c', 'd', 'e', 'f', '1', '2')));
+        assertThrows(PasswordPolicyException.class, () -> passwordPolicyService.validate(chars('A', 'b', 'c', 'd', 'e', 'f', '1', '2')));
     }
 }

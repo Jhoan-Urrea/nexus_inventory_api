@@ -4,7 +4,6 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -33,8 +32,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
 
-    private static final Pattern PASSWORD_LETTER_PATTERN = Pattern.compile(".*[A-Za-z].*");
-    private static final Pattern PASSWORD_DIGIT_PATTERN = Pattern.compile(".*\\d.*");
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String INVALID_CODE_MESSAGE = "Invalid or expired verification code";
 
@@ -100,7 +97,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     @Override
     @Transactional
     public AuthMessageResponse resetPassword(ResetPasswordRequest request, String ipAddress) {
-        validatePasswordPolicy(request.newPassword());
+        passwordPolicyService.validate(request.newPassword());
 
         PasswordResetToken resetToken = requireValidOtp(request.email(), request.code());
 
@@ -116,17 +113,6 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         authAuditService.audit(AuthAuditEventType.PASSWORD_RESET, user.getEmail(), ipAddress, "Password reset completed");
 
         return new AuthMessageResponse("Password updated successfully");
-    }
-
-    private void validatePasswordPolicy(String password) {
-        if (password == null || password.length() < 6) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters long");
-        }
-
-        if (!PASSWORD_LETTER_PATTERN.matcher(password).matches()
-                || !PASSWORD_DIGIT_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include letters and numbers");
-        }
     }
 
     /**

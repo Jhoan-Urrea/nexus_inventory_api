@@ -8,13 +8,13 @@ public record CreateWarehouseRequestDTO(
         @NotBlank @Size(max = 20)
         String code, // Añadido: Identificador de negocio
 
-        @NotBlank @Size(max = 150)
+        @NotBlank @Size(max = 100)
         String name,
 
-        @NotNull @DecimalMin(value = "0.0")
+        @NotNull @DecimalMin(value = "0.0") @Digits(integer = 10, fraction = 2)
         BigDecimal totalCapacityM2,
 
-        @NotBlank @Size(max = 250)
+        @NotBlank @Size(max = 255)
         String location,
 
         @NotNull @Positive
