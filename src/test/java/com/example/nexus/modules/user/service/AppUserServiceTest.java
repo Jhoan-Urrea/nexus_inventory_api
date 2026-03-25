@@ -1,5 +1,7 @@
 package com.example.nexus.modules.user.service;
 
+import com.example.nexus.modules.auth.exception.PasswordPolicyException;
+import com.example.nexus.modules.auth.service.PasswordPolicyService;
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.user.dto.CreateUserRequest;
 import com.example.nexus.modules.user.dto.UpdateUserRequest;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,6 +59,9 @@ class AppUserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private PasswordPolicyService passwordPolicyService;
+
     @InjectMocks
     private UserServiceImpl userService;
 
@@ -64,7 +70,7 @@ class AppUserServiceTest {
         CreateUserRequest request = new CreateUserRequest(
                 "cliente1",
                 "cliente@empresa.com",
-                "123456",
+                "Str0ng!Pass",
                 1L,
                 10L,
                 Set.of("CLIENT")
@@ -78,13 +84,13 @@ class AppUserServiceTest {
         when(cityRepository.findById(1L)).thenReturn(Optional.of(city));
         when(roleRepository.findByName("CLIENT")).thenReturn(Optional.of(clientRole));
         when(clientRepository.findById(10L)).thenReturn(Optional.of(client));
-        when(passwordEncoder.encode("123456")).thenReturn("encoded-123456");
+        when(passwordEncoder.encode("Str0ng!Pass")).thenReturn("encoded-password");
 
         AppUser persisted = AppUser.builder()
                 .id(100L)
                 .username(request.username())
                 .email(request.email())
-                .password("encoded-123456")
+                .password("encoded-password")
                 .status(UserStatus.ACTIVE)
                 .city(city)
                 .client(client)
@@ -102,10 +108,11 @@ class AppUserServiceTest {
 
         AppUser toSave = savedUserCaptor.getValue();
         assertEquals("cliente1", toSave.getUsername());
-        assertEquals("encoded-123456", toSave.getPassword());
+        assertEquals("encoded-password", toSave.getPassword());
         assertNotNull(toSave.getClient());
         assertEquals(10L, toSave.getClient().getId());
         assertEquals(10L, response.clientId());
+        verify(passwordPolicyService).validate(request.password());
     }
 
     @Test
@@ -113,7 +120,7 @@ class AppUserServiceTest {
         CreateUserRequest request = new CreateUserRequest(
                 "cliente1",
                 "cliente@empresa.com",
-                "123456",
+                "Str0ng!Pass",
                 1L,
                 999L,
                 Set.of("CLIENT")
@@ -126,12 +133,38 @@ class AppUserServiceTest {
         when(cityRepository.findById(1L)).thenReturn(Optional.of(city));
         when(roleRepository.findByName("CLIENT")).thenReturn(Optional.of(clientRole));
         when(clientRepository.findById(999L)).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("123456")).thenReturn("encoded-123456");
+        when(passwordEncoder.encode("Str0ng!Pass")).thenReturn("encoded-password");
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> userService.createUser(request));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         assertEquals("Client not found", ex.getReason());
+    }
+
+    @Test
+    void shouldRejectWeakPasswordWhenCreatingUser() {
+        CreateUserRequest request = new CreateUserRequest(
+                "cliente1",
+                "cliente@empresa.com",
+                "Password1",
+                1L,
+                10L,
+                Set.of("CLIENT")
+        );
+
+        when(userRepository.existsByEmail(request.email())).thenReturn(false);
+        doThrow(new PasswordPolicyException("Password must include at least one special character"))
+                .when(passwordPolicyService)
+                .validate(request.password());
+
+        PasswordPolicyException ex = assertThrows(
+                PasswordPolicyException.class,
+                () -> userService.createUser(request)
+        );
+
+        assertEquals("Password must include at least one special character", ex.getMessage());
+        verify(passwordEncoder, never()).encode(any());
+        verify(userRepository, never()).save(any(AppUser.class));
     }
 
     @Test

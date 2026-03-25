@@ -16,7 +16,7 @@ public record RegisterRequest(
         String email,
 
         @NotBlank
-        @Size(min = 6)
+        @Size(min = 8, max = 128, message = "must be between 8 and 128 characters long")
         String password,
 
         @NotNull

@@ -1,15 +1,15 @@
 package com.example.nexus.modules.auth.service;
 
-import com.example.nexus.modules.auth.dto.AuthResponse;
+import com.example.nexus.modules.auth.model.AuthTokens;
 import org.springframework.security.core.userdetails.UserDetails;
 
 public interface TokenLifecycleService {
 
-    AuthResponse issueTokens(UserDetails userDetails);
+    AuthTokens issueTokens(UserDetails userDetails);
 
-    AuthResponse refreshToken(String refreshToken, String ipAddress);
+    AuthTokens refreshToken(String refreshToken, String ipAddress);
 
-    void logout(String accessToken, String refreshToken, String ipAddress);
+    void logout(String refreshToken, String ipAddress);
 
     boolean isAccessTokenRevoked(String accessToken);
 }

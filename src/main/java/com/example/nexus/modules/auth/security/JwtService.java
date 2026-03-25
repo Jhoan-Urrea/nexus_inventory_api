@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.security.Key;
 import java.util.Date;
 
@@ -19,6 +20,26 @@ public class JwtService {
 
     @Value("${security.jwt.expiration}")
     private long jwtExpiration;
+    private Key signingKey;
+
+    @PostConstruct
+    void validateSecurityConfiguration() {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException("security.jwt.secret must not be blank");
+        }
+        if (jwtExpiration <= 0) {
+            throw new IllegalStateException("security.jwt.expiration must be greater than 0");
+        }
+
+        try {
+            signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException(
+                    "security.jwt.secret must be a valid Base64-encoded HMAC key with sufficient length",
+                    exception
+            );
+        }
+    }
 
     public String generateToken(UserDetails userDetails) {
         return Jwts.builder()
@@ -56,7 +77,6 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return signingKey;
     }
 }

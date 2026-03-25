@@ -1,5 +1,6 @@
 package com.example.nexus.modules.user.service;
 
+import com.example.nexus.modules.auth.service.PasswordPolicyService;
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.location.repository.CityRepository;
 import com.example.nexus.modules.user.dto.CreateUserRequest;
@@ -36,6 +37,7 @@ public class UserServiceImpl implements UserService {
     private final CityRepository cityRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicyService passwordPolicyService;
 
     @Override
     public List<UserResponse> findAllUsers() {
@@ -77,6 +79,8 @@ public class UserServiceImpl implements UserService {
         if (userRepository.existsByUsername(request.username())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already registered");
         }
+
+        passwordPolicyService.validate(request.password());
 
         City city = loadCity(request.cityId());
         Set<Role> roles = resolveRoles(request.roles());

@@ -1,7 +1,6 @@
 package com.example.nexus.modules.auth.service;
 
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
-import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
@@ -12,6 +11,7 @@ import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.RefreshToken;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.mapper.AuthMapper;
+import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.repository.AppUserRepository;
@@ -48,7 +48,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthAuditService authAuditService;
 
     @Override
-    public AuthResponse login(LoginRequest request, String ipAddress) {
+    public AuthTokens login(LoginRequest request, String ipAddress) {
         loginAttemptService.checkAllowed(request.email(), ipAddress);
 
         try {
@@ -76,7 +76,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse register(RegisterRequest request, String ipAddress) {
+    public AuthTokens register(RegisterRequest request, String ipAddress) {
         AuthRegistrationValidationService.RegistrationContext validation = authRegistrationValidationService.validate(request);
 
         AppUser user = authMapper.toEntity(request);
@@ -92,13 +92,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse refreshToken(String refreshToken, String ipAddress) {
+    public AuthTokens refreshToken(String refreshToken, String ipAddress) {
         return tokenLifecycleService.refreshToken(refreshToken, ipAddress);
     }
 
     @Override
-    public AuthMessageResponse logout(String accessToken, String refreshToken, String ipAddress) {
-        tokenLifecycleService.logout(accessToken, refreshToken, ipAddress);
+    public AuthMessageResponse logout(String refreshToken, String ipAddress) {
+        tokenLifecycleService.logout(refreshToken, ipAddress);
         return new AuthMessageResponse("Logout successful");
     }
 

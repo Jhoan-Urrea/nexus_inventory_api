@@ -6,6 +6,12 @@ La aplicacion carga variables desde `.env` usando:
 
 `spring.config.import=optional:file:.env[.properties]`
 
+Para desarrollo local, el `.env` puede dejar configurado:
+
+- `spring.profiles.default=dev`
+
+Con eso la aplicacion arranca en local sin pasar `--spring.profiles.active`, mientras que `test` y `prod` siguen funcionando con sus perfiles explicitos.
+
 Variables minimas requeridas:
 
 - `DB_DEV_URL`
@@ -31,6 +37,15 @@ Tras ejecutar el seed de la base de datos, no se crean usuarios por defecto (por
 
 ## Perfil de pruebas
 Las pruebas de contexto usan el perfil `test` (`@ActiveProfiles("test")`), por lo que la conexion para tests se toma de `DB_TEST_*`.
+
+## Ejecucion local
+Si corres la app desde el IDE o con Maven sin indicar perfil, se usara `dev` como perfil por defecto siempre que tu `.env` tenga:
+
+- `spring.profiles.default=dev`
+
+Comando recomendado:
+
+- `./mvnw spring-boot:run`
 
 ## Swagger / OpenAPI
 Con la app arriba, la documentación queda disponible en:

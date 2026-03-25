@@ -1,46 +1,66 @@
 package com.example.nexus.modules.auth.service;
 
-import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.RefreshToken;
+import com.example.nexus.modules.auth.entity.RevokedAccessToken;
 import com.example.nexus.modules.auth.exception.AuthException;
+import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
+import com.example.nexus.modules.auth.repository.RevokedAccessTokenRepository;
 import com.example.nexus.modules.auth.security.CustomUserDetailsService;
 import com.example.nexus.modules.auth.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import io.jsonwebtoken.JwtException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TokenLifecycleServiceImpl implements TokenLifecycleService {
 
-    @Value("${security.jwt.refresh-expiration:604800000}")
+    @Value("${security.jwt.refresh-expiration}")
     private long refreshTokenExpiration;
 
     private final JwtService jwtService;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final RevokedAccessTokenRepository revokedAccessTokenRepository;
     private final CustomUserDetailsService userDetailsService;
     private final AccountStateService accountStateService;
     private final AuthAuditService authAuditService;
 
+    @PostConstruct
+    void validateSecurityConfiguration() {
+        if (refreshTokenExpiration <= 0) {
+            throw new IllegalStateException("security.jwt.refresh-expiration must be greater than 0");
+        }
+    }
+
     @Override
-    public AuthResponse issueTokens(UserDetails userDetails) {
+    public AuthTokens issueTokens(UserDetails userDetails) {
         accountStateService.assertCanAuthenticate(userDetails);
 
         String accessToken = jwtService.generateToken(userDetails);
         String refreshToken = createAndStoreRefreshToken(userDetails.getUsername());
 
-        return new AuthResponse(accessToken, refreshToken);
+        return new AuthTokens(accessToken, refreshToken);
     }
 
     @Override
-    public AuthResponse refreshToken(String refreshToken, String ipAddress) {
+    public AuthTokens refreshToken(String refreshToken, String ipAddress) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "Refresh token is required");
         }
@@ -66,7 +86,7 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
                 "Refresh token rotated"
         );
 
-        return new AuthResponse(newAccessToken, newRefreshToken);
+        return new AuthTokens(newAccessToken, newRefreshToken);
     }
 
     /**
@@ -84,19 +104,16 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
     }
 
     @Override
-    public void logout(String accessToken, String refreshToken, String ipAddress) {
-        String email = "unknown";
-
-        if (accessToken != null && !accessToken.isBlank()) {
-            try {
-                email = jwtService.extractUsername(accessToken);
-            } catch (Exception ignored) {
-                // Ignore malformed token; we still revoke refresh token below.
-            }
-        }
+    public void logout(String refreshToken, String ipAddress) {
+        Authentication authentication = resolveAuthenticatedAuthentication();
+        String email = resolveAuthenticatedUserEmail(authentication);
+        revokeAuthenticatedAccessToken(authentication, email);
 
         if (refreshToken != null && !refreshToken.isBlank()) {
             refreshTokenRepository.findByToken(refreshToken).ifPresent(token -> {
+                if (!email.equalsIgnoreCase(token.getEmail())) {
+                    throw new AuthException(HttpStatus.UNAUTHORIZED, "Refresh token does not belong to the authenticated user");
+                }
                 token.setRevoked(true);
                 refreshTokenRepository.save(token);
             });
@@ -106,12 +123,18 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
     }
 
     /**
-     * Access tokens are not stored after logout; validity is only until expiry.
-     * This method is kept for filter compatibility and always returns false.
+     * Access-token revocation is stored as a SHA-256 hash to avoid persisting raw JWT values.
      */
     @Override
     public boolean isAccessTokenRevoked(String accessToken) {
-        return false;
+        if (accessToken == null || accessToken.isBlank()) {
+            return false;
+        }
+
+        return revokedAccessTokenRepository.existsByTokenHashAndExpiresAtAfter(
+                hashToken(accessToken),
+                Instant.now()
+        );
     }
 
     private String createAndStoreRefreshToken(String email) {
@@ -127,5 +150,63 @@ public class TokenLifecycleServiceImpl implements TokenLifecycleService {
         refreshTokenRepository.save(refreshToken);
 
         return tokenValue;
+    }
+
+    private Authentication resolveAuthenticatedAuthentication() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AuthException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+
+        return authentication;
+    }
+
+    private String resolveAuthenticatedUserEmail(Authentication authentication) {
+        String email = authentication.getName();
+        if (email == null || email.isBlank() || "anonymousUser".equalsIgnoreCase(email)) {
+            throw new AuthException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+
+        return email;
+    }
+
+    private void revokeAuthenticatedAccessToken(Authentication authentication, String email) {
+        Object credentials = authentication.getCredentials();
+        if (!(credentials instanceof String accessToken) || accessToken.isBlank()) {
+            log.debug("Skipping access-token revocation because the authenticated request has no JWT credentials");
+            return;
+        }
+
+        try {
+            Instant expiresAt = jwtService.extractExpiration(accessToken).toInstant();
+            if (!expiresAt.isAfter(Instant.now())) {
+                return;
+            }
+
+            String tokenHash = hashToken(accessToken);
+            if (revokedAccessTokenRepository.existsByTokenHash(tokenHash)) {
+                return;
+            }
+
+            revokedAccessTokenRepository.save(
+                    RevokedAccessToken.builder()
+                            .tokenHash(tokenHash)
+                            .email(email)
+                            .expiresAt(expiresAt)
+                            .build()
+            );
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.debug("Skipping access-token revocation because the JWT could not be parsed: {}", ex.getMessage());
+        }
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = messageDigest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hashBytes);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm not available", ex);
+        }
     }
 }

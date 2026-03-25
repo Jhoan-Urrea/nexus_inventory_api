@@ -61,4 +61,20 @@ class PasswordRecoveryEmailServiceImplTest {
 
         assertEquals("Recovery email sender is not configured", exception.getMessage());
     }
+
+    @Test
+    void shouldFailFastWhenPasswordResetExpirationIsNotPositive() {
+        PasswordRecoveryEmailServiceImpl service = new PasswordRecoveryEmailServiceImpl(
+                mailSender,
+                "no-reply@nexus.local",
+                0L
+        );
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                service::validateSecurityConfiguration
+        );
+
+        assertEquals("security.password-reset.expiration must be greater than 0", exception.getMessage());
+    }
 }

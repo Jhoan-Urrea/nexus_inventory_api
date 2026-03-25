@@ -9,6 +9,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 
 @Service
@@ -23,11 +24,18 @@ public class PasswordRecoveryEmailServiceImpl implements PasswordRecoveryEmailSe
     public PasswordRecoveryEmailServiceImpl(
             JavaMailSender mailSender,
             @Value("${app.auth.password-recovery.mail-from}") String fromAddress,
-            @Value("${security.password-reset.expiration:600000}") long passwordResetExpiration
+            @Value("${security.password-reset.expiration}") long passwordResetExpiration
     ) {
         this.mailSender = mailSender;
         this.fromAddress = fromAddress;
         this.passwordResetExpiration = passwordResetExpiration;
+    }
+
+    @PostConstruct
+    void validateSecurityConfiguration() {
+        if (passwordResetExpiration <= 0) {
+            throw new IllegalStateException("security.password-reset.expiration must be greater than 0");
+        }
     }
 
     @Override
