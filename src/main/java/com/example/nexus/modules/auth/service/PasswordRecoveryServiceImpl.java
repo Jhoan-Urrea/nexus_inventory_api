@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PostConstruct;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
@@ -37,10 +38,10 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String INVALID_CODE_MESSAGE = "Invalid or expired verification code";
 
-    @Value("${security.password-reset.expiration:600000}")
+    @Value("${security.password-reset.expiration}")
     private long passwordResetExpiration;
 
-    @Value("${security.password-reset.max-verification-attempts:5}")
+    @Value("${security.password-reset.max-verification-attempts}")
     private int maxVerificationAttempts;
 
     private final AppUserRepository appUserRepository;
@@ -51,6 +52,16 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     private final PasswordEncoder passwordEncoder;
     private final AuthAuditService authAuditService;
     private final PasswordPolicyService passwordPolicyService;
+
+    @PostConstruct
+    void validateSecurityConfiguration() {
+        if (passwordResetExpiration <= 0) {
+            throw new IllegalStateException("security.password-reset.expiration must be greater than 0");
+        }
+        if (maxVerificationAttempts <= 0) {
+            throw new IllegalStateException("security.password-reset.max-verification-attempts must be greater than 0");
+        }
+    }
 
     @Override
     @Transactional

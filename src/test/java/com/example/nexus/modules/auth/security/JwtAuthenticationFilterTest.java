@@ -25,6 +25,7 @@ import com.example.nexus.modules.auth.service.TokenLifecycleService;
 import com.example.nexus.config.AuthCookieProperties;
 
 import io.jsonwebtoken.MalformedJwtException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.FilterChain;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,21 +44,20 @@ class JwtAuthenticationFilterTest {
     private AccountStateService accountStateService;
 
     @Mock
-    private AuthCookieProperties authCookieProperties;
-
-    @Mock
     private FilterChain filterChain;
 
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setUp() {
+        AuthCookieProperties properties = new AuthCookieProperties();
+        properties.setAccessTokenName("access_token");
         filter = new JwtAuthenticationFilter(
                 jwtService,
                 userDetailsService,
                 tokenLifecycleService,
                 accountStateService,
-                authCookieProperties
+                properties
         );
         SecurityContextHolder.clearContext();
     }
@@ -70,7 +70,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void shouldIgnoreMalformedTokenAndContinueFilterChain() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer malformed-token");
+        request.setCookies(new Cookie("access_token", "malformed-token"));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(tokenLifecycleService.isAccessTokenRevoked("malformed-token")).thenReturn(false);
@@ -88,7 +88,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void shouldRejectRevokedToken() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer revoked-token");
+        request.setCookies(new Cookie("access_token", "revoked-token"));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(tokenLifecycleService.isAccessTokenRevoked("revoked-token")).thenReturn(true);
@@ -103,7 +103,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void shouldNotAuthenticateWhenAccountStateIsRejected() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer valid-token");
+        request.setCookies(new Cookie("access_token", "valid-token"));
         MockHttpServletResponse response = new MockHttpServletResponse();
         String blockedEmail = "blocked+" + UUID.randomUUID() + "@example.test";
 
@@ -130,7 +130,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void shouldAuthenticateActiveUserWithValidToken() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer valid-token");
+        request.setCookies(new Cookie("access_token", "valid-token"));
         MockHttpServletResponse response = new MockHttpServletResponse();
         String activeEmail = "active+" + UUID.randomUUID() + "@example.test";
 
@@ -147,7 +147,47 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, filterChain);
 
         assertEquals(activeEmail, SecurityContextHolder.getContext().getAuthentication().getName());
+        assertEquals("valid-token", SecurityContextHolder.getContext().getAuthentication().getCredentials());
         verify(accountStateService).assertCanAuthenticate(activeUser);
         verify(filterChain).doFilter(request, response);
     }
+
+    @Test
+    void shouldAuthenticateLogoutRequestInsteadOfSkippingIt() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/auth/logout");
+        request.setCookies(new Cookie("access_token", "logout-token"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String email = "logout+" + UUID.randomUUID() + "@example.test";
+
+        UserDetails user = User.withUsername(email)
+                .password("hash-" + UUID.randomUUID())
+                .authorities("ROLE_USER")
+                .build();
+
+        when(tokenLifecycleService.isAccessTokenRevoked("logout-token")).thenReturn(false);
+        when(jwtService.extractUsername("logout-token")).thenReturn(email);
+        when(userDetailsService.loadUserByUsername(email)).thenReturn(user);
+        when(jwtService.isTokenValid("logout-token", user)).thenReturn(true);
+
+        filter.doFilter(request, response, filterChain);
+
+        assertEquals(email, SecurityContextHolder.getContext().getAuthentication().getName());
+        assertEquals("logout-token", SecurityContextHolder.getContext().getAuthentication().getCredentials());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void shouldIgnoreAuthorizationHeaderWhenAccessCookieIsMissing() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer header-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verifyNoInteractions(jwtService, userDetailsService, tokenLifecycleService, accountStateService);
+        verify(filterChain).doFilter(request, response);
+    }
+
 }

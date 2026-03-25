@@ -253,4 +253,28 @@ class PasswordRecoveryServiceImplTest {
                 "Password reset completed"
         );
     }
+
+    @Test
+    void shouldFailFastWhenPasswordResetExpirationIsNotPositive() {
+        ReflectionTestUtils.setField(passwordRecoveryService, "passwordResetExpiration", 0L);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                passwordRecoveryService::validateSecurityConfiguration
+        );
+
+        assertEquals("security.password-reset.expiration must be greater than 0", exception.getMessage());
+    }
+
+    @Test
+    void shouldFailFastWhenMaxVerificationAttemptsIsNotPositive() {
+        ReflectionTestUtils.setField(passwordRecoveryService, "maxVerificationAttempts", 0);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                passwordRecoveryService::validateSecurityConfiguration
+        );
+
+        assertEquals("security.password-reset.max-verification-attempts must be greater than 0", exception.getMessage());
+    }
 }
