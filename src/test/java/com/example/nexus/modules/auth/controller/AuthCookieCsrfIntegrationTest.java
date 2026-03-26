@@ -4,6 +4,8 @@ import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.LoginRequest;
 import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.service.AuthService;
+import com.example.nexus.modules.user.service.ClientService;
+import com.example.nexus.modules.user.service.UserService;
 import jakarta.servlet.http.Cookie;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -44,6 +46,12 @@ class AuthCookieCsrfIntegrationTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private UserService userService;
+
+    @MockitoBean
+    private ClientService clientService;
 
     @Test
     void loginShouldRequireCsrf() throws Exception {
@@ -109,7 +117,8 @@ class AuthCookieCsrfIntegrationTest {
     }
 
     private Cookie fetchCsrfCookie() throws Exception {
-        MvcResult result = mockMvc.perform(get("/actuator/health"))
+        MvcResult result = mockMvc.perform(get("/api/csrf"))
+                .andExpect(status().isOk())
                 .andReturn();
 
         Cookie csrfCookie = result.getResponse().getCookie(CSRF_COOKIE_NAME);
