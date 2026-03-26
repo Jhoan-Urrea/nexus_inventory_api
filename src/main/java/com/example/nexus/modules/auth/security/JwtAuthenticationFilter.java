@@ -37,7 +37,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",
-            "/api/auth/logout",
             "/api/auth/password/forgot",
             "/api/auth/password/verify",
             "/api/auth/password/reset"
@@ -93,7 +92,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
-                                    null,
+                                    jwt,
                                     userDetails.getAuthorities()
                             );
 
@@ -129,20 +128,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String extractJwt(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null || cookies.length == 0) {
+        if (request.getCookies() == null) {
             return null;
         }
-        String accessTokenCookieName = authCookieProperties.getAccessTokenName();
-        for (Cookie cookie : cookies) {
-            if (accessTokenCookieName.equals(cookie.getName())) {
+
+        for (Cookie cookie : request.getCookies()) {
+            if (authCookieProperties.getAccessTokenName().equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }
+
         return null;
     }
 }

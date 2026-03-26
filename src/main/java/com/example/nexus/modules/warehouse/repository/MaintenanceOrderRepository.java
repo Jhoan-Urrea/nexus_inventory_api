@@ -18,12 +18,14 @@ public interface MaintenanceOrderRepository extends JpaRepository<MaintenanceOrd
     @Query("SELECT m FROM MaintenanceOrder m WHERE m.id = :id")
     Optional<MaintenanceOrder> findByIdWithAssociations(@Param("id") Long id);
 
-    // Consultar órdenes pendientes por nivel
+    @EntityGraph(attributePaths = {"warehouse", "sector", "storageSpace"})
+    @Query("SELECT m FROM MaintenanceOrder m")
+    List<MaintenanceOrder> findAllWithAssociations();
+
     List<MaintenanceOrder> findByWarehouseIdAndStatus(Long warehouseId, String status);
     List<MaintenanceOrder> findBySectorIdAndStatus(Long sectorId, String status);
     List<MaintenanceOrder> findByStorageSpaceIdAndStatus(Long storageSpaceId, String status);
 
-    // Listar mantenimientos programados para una fecha específica
     @Query("SELECT m FROM MaintenanceOrder m WHERE m.scheduledDate BETWEEN :start AND :end")
     List<MaintenanceOrder> findOrdersInDateRange(LocalDateTime start, LocalDateTime end);
 }

@@ -22,8 +22,8 @@ public record CreateUserRequest(
         String email,
 
         @NotBlank
-        @Size(min = 6)
-        @Schema(example = "123456")
+        @Size(min = 8, max = 128, message = "must be between 8 and 128 characters long")
+        @Schema(example = "Str0ng!Pass", minLength = 8, maxLength = 128)
         String password,
 
         @NotNull

@@ -1,19 +1,18 @@
 package com.example.nexus.modules.auth.controller;
 
+import com.example.nexus.config.AppSecurityProperties;
+import com.example.nexus.config.AuthCookieProperties;
+import com.example.nexus.exception.ApiExceptionHandler;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
-import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
-import com.example.nexus.modules.auth.dto.LogoutRequest;
-import com.example.nexus.modules.auth.dto.RefreshTokenRequest;
-import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
-import com.example.nexus.config.AppSecurityProperties;
-import com.example.nexus.config.AuthCookieProperties;
 import com.example.nexus.modules.auth.exception.AuthException;
-import com.example.nexus.exception.ApiExceptionHandler;
+import com.example.nexus.modules.auth.exception.PasswordPolicyException;
+import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
 import com.example.nexus.modules.auth.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +31,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -53,10 +53,23 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
+        AppSecurityProperties appSecurityProperties = new AppSecurityProperties();
+        appSecurityProperties.setTrustForwardedHeaders(false);
+
+        AuthCookieProperties authCookieProperties = new AuthCookieProperties();
+        authCookieProperties.setAccessTokenName("access_token");
+        authCookieProperties.setRefreshTokenName("refresh_token");
+        authCookieProperties.setHttpOnly(true);
+        authCookieProperties.setSecure(true);
+        authCookieProperties.setSameSite("None");
+        authCookieProperties.setPath("/");
+        authCookieProperties.setAccessTokenMaxAgeSeconds(900);
+        authCookieProperties.setRefreshTokenMaxAgeSeconds(604800);
+
         AuthController authController = new AuthController(
                 authService,
-                new AppSecurityProperties(),
-                new AuthCookieProperties()
+                appSecurityProperties,
+                authCookieProperties
         );
         objectMapper = new ObjectMapper().findAndRegisterModules();
         ApiExceptionHandler exceptionHandler = new ApiExceptionHandler(new AuthErrorHandlingService(objectMapper));
@@ -70,9 +83,9 @@ class AuthControllerTest {
     }
 
     @Test
-    void loginShouldReturnAccessAndRefreshTokens() throws Exception {
+    void loginShouldSetCookiesAndHideTokensFromBody() throws Exception {
         when(authService.login(any(), anyString()))
-                .thenReturn(new AuthResponse("access-token", "refresh-token"));
+                .thenReturn(new AuthTokens("access-token", "refresh-token"));
 
         String payload = toJson(new LoginRequest(sampleEmail(), sampleValidPassword()));
 
@@ -80,11 +93,40 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").value("access-token"))
-                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
-                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
+                .andExpect(jsonPath("$.message").value("Login successful"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(result -> {
+                    assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size());
+                    assertTrue(result.getResponse().getHeaders("Set-Cookie").stream()
+                            .allMatch(header -> header.contains("Secure") && header.contains("SameSite=None")));
+                });
 
         verify(authService).login(any(), anyString());
+    }
+
+    @Test
+    void registerShouldSetCookiesAndHideTokensFromBody() throws Exception {
+        when(authService.register(any(), anyString()))
+                .thenReturn(new AuthTokens("register-access", "register-refresh"));
+
+        String payload = toJson(new RegisterRequest(
+                "user",
+                sampleEmail(),
+                sampleValidPassword(),
+                1L
+        ));
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("User registered successfully"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
+
+        verify(authService).register(any(), anyString());
     }
 
     @Test
@@ -107,54 +149,62 @@ class AuthControllerTest {
     }
 
     @Test
-    void refreshShouldReturnRotatedTokens() throws Exception {
-        when(authService.refreshToken(anyString(), anyString()))
-                .thenReturn(new AuthResponse("new-access", "new-refresh"));
+    void registerShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
+        when(authService.register(any(), anyString()))
+                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
 
-        String payload = toJson(new RefreshTokenRequest("old-refresh"));
+        String payload = toJson(new RegisterRequest(
+                "user",
+                sampleEmail(),
+                samplePasswordWithoutSpecial(),
+                1L
+        ));
 
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
+    }
+
+    @Test
+    void refreshShouldReadRefreshTokenOnlyFromCookie() throws Exception {
+        when(authService.refreshToken(anyString(), anyString()))
+                .thenReturn(new AuthTokens("new-access", "new-refresh"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new jakarta.servlet.http.Cookie("refresh_token", "old-refresh")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").value("new-access"))
-                .andExpect(jsonPath("$.refreshToken").value("new-refresh"))
+                .andExpect(jsonPath("$.message").value("Token refreshed successfully"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
 
         verify(authService).refreshToken("old-refresh", "127.0.0.1");
     }
 
     @Test
-    void refreshShouldReadRefreshTokenFromCookieWhenBodyIsMissing() throws Exception {
-        when(authService.refreshToken(anyString(), anyString()))
-                .thenReturn(new AuthResponse("cookie-access", "cookie-refresh"));
+    void refreshShouldReturnBadRequestWhenRefreshTokenCookieIsMissing() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Refresh token is required"));
 
-        mockMvc.perform(post("/api/auth/refresh")
-                        .cookie(new jakarta.servlet.http.Cookie("refresh_token", "cookie-old-refresh")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").value("cookie-access"))
-                .andExpect(jsonPath("$.refreshToken").value("cookie-refresh"))
-                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
-
-        verify(authService).refreshToken("cookie-old-refresh", "127.0.0.1");
+        verifyNoInteractions(authService);
     }
 
     @Test
-    void logoutShouldDelegateAndReturnMessage() throws Exception {
-        when(authService.logout(any(), any(), anyString()))
+    void logoutShouldUseOnlyCookies() throws Exception {
+        when(authService.logout(any(), anyString()))
                 .thenReturn(new AuthMessageResponse("Logout successful"));
 
-        String payload = toJson(new LogoutRequest("refresh-1"));
-
         mockMvc.perform(post("/api/auth/logout")
-                        .header("Authorization", "Bearer access-1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                        .cookie(new jakarta.servlet.http.Cookie("access_token", "cookie-access"))
+                        .cookie(new jakarta.servlet.http.Cookie("refresh_token", "cookie-refresh")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Logout successful"))
                 .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
 
-        verify(authService).logout("access-1", "refresh-1", "127.0.0.1");
+        verify(authService).logout("cookie-refresh", "127.0.0.1");
     }
 
     @Test
@@ -194,19 +244,6 @@ class AuthControllerTest {
     }
 
     @Test
-    void refreshShouldReturnBadRequestWhenRefreshTokenIsBlank() throws Exception {
-        String payload = toJson(new RefreshTokenRequest(""));
-
-        mockMvc.perform(post("/api/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("refreshToken")));
-
-        verifyNoInteractions(authService);
-    }
-
-    @Test
     void changePasswordShouldDelegateToService() throws Exception {
         when(authService.changePassword(anyString(), any(), anyString()))
                 .thenReturn(new AuthMessageResponse("Password updated successfully"));
@@ -221,6 +258,21 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Password updated successfully"));
 
         verify(authService).changePassword(anyString(), any(), anyString());
+    }
+
+    @Test
+    void changePasswordShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
+        when(authService.changePassword(anyString(), any(), anyString()))
+                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
+
+        String payload = toJson(new ChangePasswordRequest(sampleValidPassword(), samplePasswordWithoutSpecial()));
+
+        mockMvc.perform(post("/api/auth/password/change")
+                        .principal(new UsernamePasswordAuthenticationToken(sampleEmail(), "n/a"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
     }
 
     @Test
@@ -271,6 +323,20 @@ class AuthControllerTest {
         verify(authService).resetPassword(any(), anyString());
     }
 
+    @Test
+    void resetPasswordShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
+        when(authService.resetPassword(any(), anyString()))
+                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
+
+        String payload = toJson(new ResetPasswordRequest(sampleEmail(), sampleOtp(), samplePasswordWithoutSpecial()));
+
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
+    }
+
     private String toJson(Object request) throws Exception {
         return objectMapper.writeValueAsString(request);
     }
@@ -280,10 +346,14 @@ class AuthControllerTest {
     }
 
     private String sampleValidPassword() {
-        return "A1" + UUID.randomUUID().toString().replace("-", "");
+        return "A1!" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private String samplePasswordWithoutSpecial() {
+        return new String(new char[]{'P', 'a', 's', 's', 'w', 'o', 'r', 'd', '1'});
     }
 
     private String sampleOtp() {
-        return new String(new char[]{'1','2','3','4','5','6'});
+        return new String(new char[]{'1', '2', '3', '4', '5', '6'});
     }
 }

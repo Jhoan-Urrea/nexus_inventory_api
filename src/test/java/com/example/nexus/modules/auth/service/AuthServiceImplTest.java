@@ -1,7 +1,6 @@
 package com.example.nexus.modules.auth.service;
 
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
-import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
@@ -11,6 +10,7 @@ import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.RefreshToken;
 import com.example.nexus.modules.auth.mapper.AuthMapper;
+import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
 import com.example.nexus.modules.location.entity.City;
 import com.example.nexus.modules.user.entity.AppUser;
@@ -25,6 +25,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -82,6 +83,11 @@ class AuthServiceImplTest {
     @InjectMocks
     private AuthServiceImpl authService;
 
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void loginShouldGenerateAccessAndRefreshTokens() {
         String email = sampleEmail();
@@ -100,14 +106,14 @@ class AuthServiceImplTest {
                 principal.getAuthorities()
         );
 
-        AuthResponse expectedTokens = new AuthResponse("access-token", "refresh-token");
+        AuthTokens expectedTokens = new AuthTokens("access-token", "refresh-token");
 
         when(authenticationManager.authenticate(any(Authentication.class))).thenReturn(authentication);
         when(tokenLifecycleService.issueTokens(principal)).thenReturn(expectedTokens);
 
-        AuthResponse response = authService.login(request, "127.0.0.1");
+        AuthTokens response = authService.login(request, "127.0.0.1");
 
-        assertEquals("access-token", response.token());
+        assertEquals("access-token", response.accessToken());
         assertEquals("refresh-token", response.refreshToken());
 
         verify(loginAttemptService).checkAllowed(request.email(), "127.0.0.1");
@@ -159,11 +165,11 @@ class AuthServiceImplTest {
         when(authMapper.toEntity(request)).thenReturn(mappedUser);
         when(passwordEncoder.encode(request.password())).thenReturn(encodedPassword);
         when(appUserRepository.save(mappedUser)).thenReturn(savedUser);
-        when(tokenLifecycleService.issueTokens(any(UserDetails.class))).thenReturn(new AuthResponse("access", "refresh"));
+        when(tokenLifecycleService.issueTokens(any(UserDetails.class))).thenReturn(new AuthTokens("access", "refresh"));
 
-        AuthResponse response = authService.register(request, "127.0.0.1");
+        AuthTokens response = authService.register(request, "127.0.0.1");
 
-        assertEquals("access", response.token());
+        assertEquals("access", response.accessToken());
         assertEquals("refresh", response.refreshToken());
         assertEquals(city, mappedUser.getCity());
         assertEquals(Set.of(role), mappedUser.getRoles());
@@ -242,6 +248,19 @@ class AuthServiceImplTest {
         verify(authAuditService).audit(AuthAuditEventType.PASSWORD_CHANGED, email, "127.0.0.1", "Password changed");
     }
 
+    @Test
+    void logoutShouldDelegateUsingOnlyRefreshTokenAndIp() {
+        String email = sampleEmail();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(email, "n/a", List.of())
+        );
+
+        AuthMessageResponse response = authService.logout("refresh-token", "127.0.0.1");
+
+        assertEquals("Logout successful", response.message());
+        verify(tokenLifecycleService).logout("refresh-token", "127.0.0.1");
+    }
+
     private String sampleEmail() {
         return "tester+" + UUID.randomUUID() + "@example.test";
     }
@@ -251,7 +270,7 @@ class AuthServiceImplTest {
     }
 
     private String samplePassword() {
-        return "A1" + UUID.randomUUID().toString().replace("-", "");
+        return "A1!" + UUID.randomUUID().toString().replace("-", "");
     }
 
     private String sampleHash() {

@@ -1,9 +1,8 @@
 package com.example.nexus.modules.auth.service;
 
-import com.example.nexus.modules.auth.exception.AuthException;
+import com.example.nexus.modules.auth.exception.PasswordPolicyException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.regex.Pattern;
@@ -26,31 +25,31 @@ public class PasswordPolicyServiceImpl implements PasswordPolicyService {
     @Override
     public void validate(String password) {
         if (password == null || password.isBlank()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password is required");
+            throw new PasswordPolicyException("Password is required");
         }
 
         if (password.length() < minLength) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must be at least " + minLength + " characters long");
+            throw new PasswordPolicyException("Password must be at least " + minLength + " characters long");
         }
 
         if (password.length() > maxLength) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must be at most " + maxLength + " characters long");
+            throw new PasswordPolicyException("Password must be at most " + maxLength + " characters long");
         }
 
         if (!UPPERCASE_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include at least one uppercase letter");
+            throw new PasswordPolicyException("Password must include at least one uppercase letter");
         }
 
         if (!LOWERCASE_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include at least one lowercase letter");
+            throw new PasswordPolicyException("Password must include at least one lowercase letter");
         }
 
         if (!DIGIT_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include at least one digit");
+            throw new PasswordPolicyException("Password must include at least one digit");
         }
 
         if (!SPECIAL_CHAR_PATTERN.matcher(password).matches()) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "Password must include at least one special character");
+            throw new PasswordPolicyException("Password must include at least one special character");
         }
     }
 }

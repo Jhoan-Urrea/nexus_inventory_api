@@ -1,17 +1,29 @@
 package com.example.nexus.config;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
-import java.util.ArrayList;
 import java.util.List;
 
+@Validated
 @ConfigurationProperties(prefix = "app.cors")
 public class CorsProperties {
 
-    private List<String> allowedOriginPatterns = new ArrayList<>();
-    private List<String> allowedMethods = new ArrayList<>();
-    private List<String> allowedHeaders = new ArrayList<>();
+    @NotEmpty
+    private List<@NotBlank String> allowedOriginPatterns;
+
+    @NotEmpty
+    private List<@NotBlank String> allowedMethods;
+
+    @NotEmpty
+    private List<@NotBlank String> allowedHeaders;
+
+    @PositiveOrZero
     private long maxAge;
+    private boolean allowCredentials;
 
     public List<String> getAllowedOriginPatterns() {
         return allowedOriginPatterns;
@@ -43,5 +55,13 @@ public class CorsProperties {
 
     public void setMaxAge(long maxAge) {
         this.maxAge = maxAge;
+    }
+
+    public boolean isAllowCredentials() {
+        return allowCredentials;
+    }
+
+    public void setAllowCredentials(boolean allowCredentials) {
+        this.allowCredentials = allowCredentials;
     }
 }
