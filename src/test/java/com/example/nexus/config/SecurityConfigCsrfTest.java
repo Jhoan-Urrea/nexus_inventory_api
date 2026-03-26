@@ -1,5 +1,7 @@
 package com.example.nexus.config;
 
+import com.example.nexus.modules.user.service.ClientService;
+import com.example.nexus.modules.user.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -9,8 +11,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,7 +25,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -40,6 +44,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.security.csrf-cookie-name=APP-XSRF-TOKEN",
         "app.security.csrf-header-name=X-APP-CSRF-TOKEN",
         "app.security.csrf-cookie-http-only=false",
+        "app.security.csrf-cookie-secure=true",
+        "app.security.csrf-cookie-same-site=None",
+        "app.security.csrf-cookie-path=/",
         "app.cors.allowed-origin-patterns=http://localhost:3000",
         "app.cors.allowed-methods=GET,POST,PUT,DELETE,OPTIONS",
         "app.cors.allowed-headers=Authorization,Content-Type",
@@ -62,17 +69,35 @@ class SecurityConfigCsrfTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @MockitoBean
+    private UserService userService;
+
+    @MockitoBean
+    private ClientService clientService;
+
     @Test
-    void getShouldNotRequireCsrfAndShouldExposeReadableCsrfCookie() throws Exception {
-        var result = mockMvc.perform(get("/api/csrf-probe")
-                        .with(user("csrf-user").roles("USER")))
+    void csrfBootstrapEndpointShouldBePublicAndExposeReadableCookie() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/csrf"))
                 .andExpect(status().isOk())
                 .andExpect(cookie().exists(CSRF_COOKIE_NAME))
                 .andExpect(cookie().httpOnly(CSRF_COOKIE_NAME, false))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.headerName").value(CSRF_HEADER_NAME))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.parameterName").value("_csrf"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.token").isString())
                 .andReturn();
 
-        assertTrue(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE).stream()
-                .anyMatch(header -> header.contains(CSRF_COOKIE_NAME + "=") && header.contains("Path=/")));
+        var csrfCookie = result.getResponse().getCookie(CSRF_COOKIE_NAME);
+        assertNotNull(csrfCookie);
+        assertEquals("/", csrfCookie.getPath());
+        assertEquals("None", csrfCookie.getAttribute("SameSite"));
+        assertEquals(true, csrfCookie.getSecure());
+    }
+
+    @Test
+    void protectedGetShouldNotRequireCsrf() throws Exception {
+        mockMvc.perform(get("/api/csrf-probe")
+                        .with(user("csrf-user").roles("USER")))
+                .andExpect(status().isOk());
     }
 
     @ParameterizedTest
@@ -85,8 +110,7 @@ class SecurityConfigCsrfTest {
     @ParameterizedTest
     @ValueSource(strings = {"POST", "PUT", "DELETE"})
     void mutatingRequestsShouldAcceptConfiguredCsrfHeader(String method) throws Exception {
-        var csrfBootstrap = mockMvc.perform(get("/api/csrf-probe")
-                        .with(user("csrf-user").roles("USER")))
+        var csrfBootstrap = mockMvc.perform(get("/api/csrf"))
                 .andExpect(status().isOk())
                 .andReturn();
 
