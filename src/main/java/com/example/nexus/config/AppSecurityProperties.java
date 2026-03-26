@@ -1,6 +1,8 @@
 package com.example.nexus.config;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -58,6 +60,31 @@ public class AppSecurityProperties {
      * Si true, marca la cookie CSRF como HttpOnly.
      */
     private boolean csrfCookieHttpOnly;
+
+    /**
+     * Si true, marca la cookie CSRF como Secure.
+     */
+    private boolean csrfCookieSecure;
+
+    /**
+     * SameSite de la cookie CSRF. Para SPA cross-origin en produccion debe ser None.
+     */
+    @NotBlank
+    @Pattern(
+            regexp = "^(?i)(Strict|Lax|None)$",
+            message = "app.security.csrf-cookie-same-site must be one of Strict, Lax, None"
+    )
+    private String csrfCookieSameSite = "Lax";
+
+    /**
+     * Path de la cookie CSRF.
+     */
+    @NotBlank
+    @Pattern(
+            regexp = "^/.*$",
+            message = "app.security.csrf-cookie-path must start with '/'"
+    )
+    private String csrfCookiePath = "/";
 
     public boolean isTrustForwardedHeaders() {
         return trustForwardedHeaders;
@@ -129,5 +156,38 @@ public class AppSecurityProperties {
 
     public void setCsrfCookieHttpOnly(boolean csrfCookieHttpOnly) {
         this.csrfCookieHttpOnly = csrfCookieHttpOnly;
+    }
+
+    public boolean isCsrfCookieSecure() {
+        return csrfCookieSecure;
+    }
+
+    public void setCsrfCookieSecure(boolean csrfCookieSecure) {
+        this.csrfCookieSecure = csrfCookieSecure;
+    }
+
+    public String getCsrfCookieSameSite() {
+        return csrfCookieSameSite;
+    }
+
+    public void setCsrfCookieSameSite(String csrfCookieSameSite) {
+        this.csrfCookieSameSite = csrfCookieSameSite;
+    }
+
+    public String getCsrfCookiePath() {
+        return csrfCookiePath;
+    }
+
+    public void setCsrfCookiePath(String csrfCookiePath) {
+        this.csrfCookiePath = csrfCookiePath;
+    }
+
+    @AssertTrue(message = "app.security.csrf-cookie-secure must be true when app.security.csrf-cookie-same-site is None")
+    public boolean isCsrfCookieSameSiteCompatibleWithSecure() {
+        if (csrfCookieSameSite == null) {
+            return true;
+        }
+
+        return !"none".equalsIgnoreCase(csrfCookieSameSite.trim()) || csrfCookieSecure;
     }
 }

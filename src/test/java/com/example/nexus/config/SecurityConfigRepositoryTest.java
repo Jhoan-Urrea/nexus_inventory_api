@@ -23,17 +23,16 @@ class SecurityConfigRepositoryTest {
         securityProperties.setCsrfCookieName("APP-XSRF-TOKEN");
         securityProperties.setCsrfHeaderName("X-APP-CSRF-TOKEN");
         securityProperties.setCsrfCookieHttpOnly(true);
-
-        AuthCookieProperties authCookieProperties = new AuthCookieProperties();
-        authCookieProperties.setPath("/");
+        securityProperties.setCsrfCookieSecure(true);
+        securityProperties.setCsrfCookieSameSite("None");
+        securityProperties.setCsrfCookiePath("/");
 
         SecurityConfig securityConfig = new SecurityConfig(
                 mock(JwtAuthenticationFilter.class),
                 mock(CustomUserDetailsService.class),
                 mock(AuthAuthenticationEntryPoint.class),
                 mock(AuthAccessDeniedHandler.class),
-                securityProperties,
-                authCookieProperties
+                securityProperties
         );
 
         CookieCsrfTokenRepository repository = securityConfig.cookieCsrfTokenRepository();
@@ -50,6 +49,8 @@ class SecurityConfigRepositoryTest {
         assertTrue(setCookieHeader.contains("APP-XSRF-TOKEN="));
         assertTrue(setCookieHeader.contains("Path=/"));
         assertTrue(setCookieHeader.contains("HttpOnly"));
+        assertTrue(setCookieHeader.contains("Secure"));
+        assertEquals("/", repository.getCookiePath());
     }
 
     @Test
@@ -58,17 +59,15 @@ class SecurityConfigRepositoryTest {
         securityProperties.setCsrfCookieName("APP-XSRF-TOKEN");
         securityProperties.setCsrfHeaderName("X-APP-CSRF-TOKEN");
         securityProperties.setCsrfCookieHttpOnly(false);
-
-        AuthCookieProperties authCookieProperties = new AuthCookieProperties();
-        authCookieProperties.setPath("/");
+        securityProperties.setCsrfCookieSameSite("Lax");
+        securityProperties.setCsrfCookiePath("/");
 
         SecurityConfig securityConfig = new SecurityConfig(
                 mock(JwtAuthenticationFilter.class),
                 mock(CustomUserDetailsService.class),
                 mock(AuthAuthenticationEntryPoint.class),
                 mock(AuthAccessDeniedHandler.class),
-                securityProperties,
-                authCookieProperties
+                securityProperties
         );
 
         CookieCsrfTokenRepository repository = securityConfig.cookieCsrfTokenRepository();

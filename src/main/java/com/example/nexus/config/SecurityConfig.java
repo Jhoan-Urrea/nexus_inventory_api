@@ -50,7 +50,6 @@ public class SecurityConfig {
     private final AuthAuthenticationEntryPoint authAuthenticationEntryPoint;
     private final AuthAccessDeniedHandler authAccessDeniedHandler;
     private final AppSecurityProperties appSecurityProperties;
-    private final AuthCookieProperties authCookieProperties;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -75,11 +74,15 @@ public class SecurityConfig {
 
     @Bean
     public CookieCsrfTokenRepository cookieCsrfTokenRepository() {
-        CookieCsrfTokenRepository repository = new CookieCsrfTokenRepository();
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         repository.setCookieName(appSecurityProperties.getCsrfCookieName());
         repository.setHeaderName(appSecurityProperties.getCsrfHeaderName());
-        repository.setCookiePath(authCookieProperties.getPath());
-        repository.setCookieCustomizer(builder -> builder.httpOnly(appSecurityProperties.isCsrfCookieHttpOnly()));
+        repository.setCookiePath(appSecurityProperties.getCsrfCookiePath());
+        repository.setCookieCustomizer(builder -> builder
+                .httpOnly(appSecurityProperties.isCsrfCookieHttpOnly())
+                .path(appSecurityProperties.getCsrfCookiePath())
+                .sameSite(appSecurityProperties.getCsrfCookieSameSite())
+                .secure(appSecurityProperties.isCsrfCookieSecure()));
         return repository;
     }
 
@@ -103,6 +106,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     auth.requestMatchers("/api/health", "/error").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/csrf").permitAll();
                     auth.requestMatchers(HttpMethod.POST, PUBLIC_AUTH_ENDPOINTS).permitAll();
                     auth.requestMatchers("/api/auth/**").authenticated();
 
