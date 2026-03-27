@@ -2,6 +2,7 @@ package com.example.nexus.modules.auth.controller;
 
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.LoginRequest;
+import com.example.nexus.modules.auth.dto.RegisterRequest;
 import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.service.AuthService;
 import com.example.nexus.modules.user.service.ClientService;
@@ -28,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -111,15 +111,45 @@ class AuthCookieCsrfIntegrationTest {
     }
 
     @Test
-    void loginShouldRequireCsrf() throws Exception {
+    void loginShouldAllowRequestsWithoutCsrf() throws Exception {
+        when(authService.login(any(), anyString()))
+                .thenReturn(new AuthTokens("access-cookie-token", "refresh-cookie-token"));
+
         mockMvc.perform(post("/api/auth/login")
+                        .header(HttpHeaders.ORIGIN, LOCAL_FRONTEND_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new LoginRequest("tester@example.com", "A123456789")
                         )))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Login successful"))
+                .andExpect(cookie().exists("access_token"))
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, LOCAL_FRONTEND_ORIGIN))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
 
-        verifyNoInteractions(authService);
+        verify(authService).login(any(), anyString());
+    }
+
+    @Test
+    void registerShouldAllowRequestsWithoutCsrf() throws Exception {
+        when(authService.register(any(), anyString()))
+                .thenReturn(new AuthTokens("register-access-token", "register-refresh-token"));
+
+        mockMvc.perform(post("/api/auth/register")
+                        .header(HttpHeaders.ORIGIN, LOCAL_FRONTEND_ORIGIN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RegisterRequest("tester", "tester@example.com", "A123456789!", 1L)
+                        )))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("User registered successfully"))
+                .andExpect(cookie().exists("access_token"))
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, LOCAL_FRONTEND_ORIGIN))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
+
+        verify(authService).register(any(), anyString());
     }
 
     @Test
@@ -180,12 +210,22 @@ class AuthCookieCsrfIntegrationTest {
     }
 
     @Test
-    void logoutShouldRequireCsrf() throws Exception {
-        mockMvc.perform(post("/api/auth/logout")
-                        .cookie(new jakarta.servlet.http.Cookie("refresh_token", "refresh-cookie-token")))
-                .andExpect(status().isForbidden());
+    void logoutShouldAllowRequestsWithoutCsrf() throws Exception {
+        when(authService.logout(any(), anyString()))
+                .thenReturn(new AuthMessageResponse("Logout successful"));
 
-        verifyNoInteractions(authService);
+        mockMvc.perform(post("/api/auth/logout")
+                        .header(HttpHeaders.ORIGIN, LOCAL_FRONTEND_ORIGIN)
+                        .cookie(new jakarta.servlet.http.Cookie("access_token", "access-cookie-token"))
+                        .cookie(new jakarta.servlet.http.Cookie("refresh_token", "refresh-cookie-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logout successful"))
+                .andExpect(cookie().value("access_token", ""))
+                .andExpect(cookie().value("refresh_token", ""))
+                .andExpect(cookie().maxAge("access_token", 0))
+                .andExpect(cookie().maxAge("refresh_token", 0));
+
+        verify(authService).logout("refresh-cookie-token", "127.0.0.1");
     }
 
     @Test
