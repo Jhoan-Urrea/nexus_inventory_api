@@ -39,6 +39,13 @@ public class SecurityConfig {
             "/api/auth/password/reset"
     };
 
+    private static final String[] CSRF_IGNORED_AUTH_ENDPOINTS = {
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/refresh",
+            "/api/auth/logout"
+    };
+
     private static final String[] SWAGGER_ENDPOINTS = {
             "/v3/api-docs/**",
             "/swagger-ui/**",
@@ -96,7 +103,8 @@ public class SecurityConfig {
         if (appSecurityProperties.isCsrfEnabled()) {
             http.csrf(csrf -> csrf
                     .csrfTokenRepository(cookieCsrfTokenRepository())
-                    .csrfTokenRequestHandler(csrfTokenRequestHandler()));
+                    .csrfTokenRequestHandler(csrfTokenRequestHandler())
+                    .ignoringRequestMatchers(CSRF_IGNORED_AUTH_ENDPOINTS));
         } else {
             http.csrf(AbstractHttpConfigurer::disable);
         }
