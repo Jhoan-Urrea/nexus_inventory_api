@@ -153,27 +153,16 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void shouldAuthenticateLogoutRequestInsteadOfSkippingIt() throws Exception {
+    void shouldSkipLogoutRequestLikeOtherPublicAuthEndpoints() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRequestURI("/api/auth/logout");
         request.setCookies(new Cookie("access_token", "logout-token"));
         MockHttpServletResponse response = new MockHttpServletResponse();
-        String email = "logout+" + UUID.randomUUID() + "@example.test";
-
-        UserDetails user = User.withUsername(email)
-                .password("hash-" + UUID.randomUUID())
-                .authorities("ROLE_USER")
-                .build();
-
-        when(tokenLifecycleService.isAccessTokenRevoked("logout-token")).thenReturn(false);
-        when(jwtService.extractUsername("logout-token")).thenReturn(email);
-        when(userDetailsService.loadUserByUsername(email)).thenReturn(user);
-        when(jwtService.isTokenValid("logout-token", user)).thenReturn(true);
 
         filter.doFilter(request, response, filterChain);
 
-        assertEquals(email, SecurityContextHolder.getContext().getAuthentication().getName());
-        assertEquals("logout-token", SecurityContextHolder.getContext().getAuthentication().getCredentials());
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verifyNoInteractions(jwtService, userDetailsService, tokenLifecycleService, accountStateService);
         verify(filterChain).doFilter(request, response);
     }
 
