@@ -23,7 +23,7 @@ public class CsrfController {
 
     @GetMapping("/csrf")
     public CsrfTokenResponse csrf(HttpServletRequest request, HttpServletResponse response) {
-        DeferredCsrfToken deferredCsrfToken = csrfTokenRepository.loadDeferredToken(request, response);
+        DeferredCsrfToken deferredCsrfToken = resolveDeferredCsrfToken(request, response);
         CsrfToken csrfToken = deferredCsrfToken.get();
 
         // Re-issue the cookie when the token already existed so SPA clients always
@@ -37,6 +37,15 @@ public class CsrfController {
                 csrfToken.getParameterName(),
                 csrfToken.getToken()
         );
+    }
+
+    private DeferredCsrfToken resolveDeferredCsrfToken(HttpServletRequest request, HttpServletResponse response) {
+        Object existingDeferredToken = request.getAttribute(DeferredCsrfToken.class.getName());
+        if (existingDeferredToken instanceof DeferredCsrfToken deferredCsrfToken) {
+            return deferredCsrfToken;
+        }
+
+        return csrfTokenRepository.loadDeferredToken(request, response);
     }
 
     public record CsrfTokenResponse(String headerName, String parameterName, String token) {
