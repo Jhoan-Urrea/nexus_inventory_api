@@ -2,6 +2,7 @@ package com.example.nexus.config;
 
 import com.example.nexus.modules.user.service.ClientService;
 import com.example.nexus.modules.user.service.UserService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -69,6 +70,9 @@ class SecurityConfigCsrfTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @MockitoBean
     private UserService userService;
 
@@ -91,6 +95,16 @@ class SecurityConfigCsrfTest {
         assertEquals("/", csrfCookie.getPath());
         assertEquals("None", csrfCookie.getAttribute("SameSite"));
         assertEquals(true, csrfCookie.getSecure());
+        assertEquals(
+                csrfCookie.getValue(),
+                objectMapper.readTree(result.getResponse().getContentAsString()).get("token").asText()
+        );
+        assertEquals(
+                1L,
+                java.util.Arrays.stream(result.getResponse().getCookies())
+                        .filter(cookie -> CSRF_COOKIE_NAME.equals(cookie.getName()))
+                        .count()
+        );
     }
 
     @Test
