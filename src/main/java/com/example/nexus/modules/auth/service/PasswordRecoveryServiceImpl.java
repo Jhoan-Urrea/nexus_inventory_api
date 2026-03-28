@@ -49,6 +49,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     private final PasswordEncoder passwordEncoder;
     private final AuthAuditService authAuditService;
     private final PasswordPolicyService passwordPolicyService;
+    private final PasswordChangeNotificationService passwordChangeNotificationService;
 
     @PostConstruct
     void validateSecurityConfiguration() {
@@ -111,6 +112,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         revokeActiveRefreshTokens(resetToken.getEmail());
 
         authAuditService.audit(AuthAuditEventType.PASSWORD_RESET, user.getEmail(), ipAddress, "Password reset completed");
+        passwordChangeNotificationService.sendPasswordChangedEmail(user.getEmail());
 
         return new AuthMessageResponse("Password updated successfully");
     }
