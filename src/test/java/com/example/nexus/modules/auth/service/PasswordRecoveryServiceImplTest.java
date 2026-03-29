@@ -39,6 +39,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -77,6 +78,9 @@ class PasswordRecoveryServiceImplTest {
 
     @Mock
     private AuthAuditService authAuditService;
+
+    @Mock
+    private PasswordChangeNotificationService passwordChangeNotificationService;
 
     @InjectMocks
     private PasswordRecoveryServiceImpl passwordRecoveryService;
@@ -256,6 +260,7 @@ class PasswordRecoveryServiceImplTest {
                 "127.0.0.1",
                 "Password reset completed"
         );
+        verify(passwordChangeNotificationService).sendPasswordChangedEmail(email);
     }
 
     @Test
@@ -278,6 +283,7 @@ class PasswordRecoveryServiceImplTest {
         verify(passwordResetTokenRepository, never()).findFirstByEmailAndUsedFalseOrderByCreatedAtDesc(anyString());
         verify(appUserRepository, never()).findByEmail(anyString());
         verify(passwordEncoder, never()).encode(anyString());
+        verifyNoInteractions(passwordChangeNotificationService);
     }
 
     @Test

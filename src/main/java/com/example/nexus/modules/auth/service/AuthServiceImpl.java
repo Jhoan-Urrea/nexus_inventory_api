@@ -46,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final LoginAttemptService loginAttemptService;
     private final PasswordRecoveryService passwordRecoveryService;
     private final AuthAuditService authAuditService;
+    private final PasswordChangeNotificationService passwordChangeNotificationService;
 
     @Override
     public AuthTokens login(LoginRequest request, String ipAddress) {
@@ -133,6 +134,7 @@ public class AuthServiceImpl implements AuthService {
 
         revokeActiveRefreshTokens(user.getEmail());
         authAuditService.audit(AuthAuditEventType.PASSWORD_CHANGED, user.getEmail(), ipAddress, "Password changed");
+        passwordChangeNotificationService.sendPasswordChangedEmail(email);
 
         return new AuthMessageResponse("Password updated successfully");
     }

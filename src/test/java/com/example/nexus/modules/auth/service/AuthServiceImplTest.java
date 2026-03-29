@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -79,6 +80,9 @@ class AuthServiceImplTest {
 
     @Mock
     private AuthAuditService authAuditService;
+
+    @Mock
+    private PasswordChangeNotificationService passwordChangeNotificationService;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -246,6 +250,26 @@ class AuthServiceImplTest {
         verify(appUserRepository).save(user);
         verify(refreshTokenRepository).saveAll(List.of(refreshToken));
         verify(authAuditService).audit(AuthAuditEventType.PASSWORD_CHANGED, email, "127.0.0.1", "Password changed");
+        verify(passwordChangeNotificationService).sendPasswordChangedEmail(email);
+    }
+
+    @Test
+    void changePasswordShouldNotNotifyWhenCurrentPasswordIsInvalid() {
+        String email = sampleEmail();
+        AppUser user = AppUser.builder()
+                .id(7L)
+                .email(email)
+                .password(sampleHash())
+                .build();
+        ChangePasswordRequest request = new ChangePasswordRequest(samplePassword(), samplePassword());
+
+        when(appUserRepository.findByEmail(email)).thenReturn(java.util.Optional.of(user));
+        when(passwordEncoder.matches(request.currentPassword(), user.getPassword())).thenReturn(false);
+
+        assertThrows(com.example.nexus.modules.auth.exception.AuthException.class,
+                () -> authService.changePassword(email, request, "127.0.0.1"));
+
+        verifyNoInteractions(passwordChangeNotificationService);
     }
 
     @Test
