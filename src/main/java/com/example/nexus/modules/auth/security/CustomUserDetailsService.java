@@ -4,6 +4,7 @@ import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.entity.Role;
 import com.example.nexus.modules.user.entity.UserStatus;
 import com.example.nexus.modules.user.repository.AppUserRepository;
+import com.example.nexus.util.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -25,8 +26,9 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        String normalizedEmail = EmailUtils.normalizeEmail(email);
 
-        AppUser user = appUserRepository.findWithRolesByEmail(email)
+        AppUser user = appUserRepository.findWithRolesByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         Set<Role> roles = user.getRoles() == null ? Collections.emptySet() : user.getRoles();

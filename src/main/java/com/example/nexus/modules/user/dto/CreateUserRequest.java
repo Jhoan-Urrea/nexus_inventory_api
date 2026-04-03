@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
 
 import java.util.Set;
 
@@ -21,9 +20,11 @@ public record CreateUserRequest(
         @Schema(example = "cliente@empresa.com")
         String email,
 
-        @NotBlank
-        @Size(min = 8, max = 128, message = "must be between 8 and 128 characters long")
-        @Schema(example = "Str0ng!Pass", minLength = 8, maxLength = 128)
+        @Schema(
+                example = "Str0ng!Pass",
+                description = "Ignored during user creation and kept temporarily for backward compatibility. "
+                        + "The final password is defined during account activation."
+        )
         String password,
 
         @NotNull

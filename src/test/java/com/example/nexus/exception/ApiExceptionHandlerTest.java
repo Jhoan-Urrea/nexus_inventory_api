@@ -21,7 +21,7 @@ class ApiExceptionHandlerTest {
     @Test
     void shouldMapAuthExceptionToConfiguredStatus() {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setRequestURI("/api/auth/register");
+        request.setRequestURI("/api/auth/login");
 
         ResponseEntity<AuthErrorResponse> response = handler.handleAuthException(
                 new AuthException(HttpStatus.CONFLICT, "Email already registered"),
@@ -31,7 +31,7 @@ class ApiExceptionHandlerTest {
         assertEquals(409, response.getStatusCode().value());
         assertEquals("Conflict", response.getBody().error());
         assertEquals("Email already registered", response.getBody().message());
-        assertEquals("/api/auth/register", response.getBody().path());
+        assertEquals("/api/auth/login", response.getBody().path());
     }
 
     @Test
@@ -64,5 +64,70 @@ class ApiExceptionHandlerTest {
         assertEquals("Not Found", response.getBody().error());
         assertEquals("Bodega no encontrada", response.getBody().message());
         assertEquals("/api/warehouses/1", response.getBody().path());
+    }
+
+    @Test
+    void shouldMapBusinessExceptionToBadRequest() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/clients");
+
+        ResponseEntity<AuthErrorResponse> response = handler.handleBusinessException(
+                new BusinessException("Email already in use"),
+                request
+        );
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("Bad Request", response.getBody().error());
+        assertEquals("Email already in use", response.getBody().message());
+        assertEquals("/api/clients", response.getBody().path());
+    }
+
+    @Test
+    void shouldMapValidationExceptionToBadRequest() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/clients");
+
+        ResponseEntity<AuthErrorResponse> response = handler.handleDomainValidationException(
+                new ValidationException("cityId is required"),
+                request
+        );
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("Bad Request", response.getBody().error());
+        assertEquals("cityId is required", response.getBody().message());
+        assertEquals("/api/clients", response.getBody().path());
+    }
+
+    @Test
+    void shouldMapNotFoundExceptionTo404() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/clients");
+
+        ResponseEntity<AuthErrorResponse> response = handler.handleNotFoundException(
+                new NotFoundException("City not found"),
+                request
+        );
+
+        assertEquals(404, response.getStatusCode().value());
+        assertEquals("Not Found", response.getBody().error());
+        assertEquals("City not found", response.getBody().message());
+        assertEquals("/api/clients", response.getBody().path());
+    }
+
+    @Test
+    void shouldMapUnexpectedExceptionTo500() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setRequestURI("/api/clients");
+
+        ResponseEntity<AuthErrorResponse> response = handler.handleUnexpectedException(
+                new RuntimeException("boom"),
+                request
+        );
+
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("Internal Server Error", response.getBody().error());
+        assertEquals("Internal server error", response.getBody().message());
+        assertEquals("/api/clients", response.getBody().path());
     }
 }
