@@ -3,18 +3,21 @@ package com.example.nexus.modules.auth.controller;
 import com.example.nexus.config.AppSecurityProperties;
 import com.example.nexus.config.AuthCookieProperties;
 import com.example.nexus.exception.ApiExceptionHandler;
+import com.example.nexus.modules.auth.dto.ActivateAccountRequest;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
-import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.ResendActivationRequest;
 import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
 import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.exception.PasswordPolicyException;
+import com.example.nexus.modules.auth.model.AuthenticatedFlowResult;
 import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
 import com.example.nexus.modules.auth.service.AuthService;
+import com.example.nexus.modules.auth.service.PostAuthenticationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,6 +51,9 @@ class AuthControllerTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private PostAuthenticationService postAuthenticationService;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -68,6 +74,7 @@ class AuthControllerTest {
 
         AuthController authController = new AuthController(
                 authService,
+                postAuthenticationService,
                 appSecurityProperties,
                 authCookieProperties
         );
@@ -103,68 +110,21 @@ class AuthControllerTest {
                 });
 
         verify(authService).login(any(), anyString());
+        verify(postAuthenticationService).authenticateUser(anyString(), any(), any());
     }
 
     @Test
-    void registerShouldSetCookiesAndHideTokensFromBody() throws Exception {
-        when(authService.register(any(), anyString()))
-                .thenReturn(new AuthTokens("register-access", "register-refresh"));
+    void loginShouldReturnForbiddenWhenAccountIsNotActivated() throws Exception {
+        when(authService.login(any(), anyString()))
+                .thenThrow(new AuthException(HttpStatus.FORBIDDEN, "Account not activated. Please activate your account."));
 
-        String payload = toJson(new RegisterRequest(
-                "user",
-                sampleEmail(),
-                sampleValidPassword(),
-                1L
-        ));
+        String payload = toJson(new LoginRequest(sampleEmail(), sampleValidPassword()));
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("User registered successfully"))
-                .andExpect(jsonPath("$.accessToken").doesNotExist())
-                .andExpect(jsonPath("$.refreshToken").doesNotExist())
-                .andExpect(result -> assertEquals(2, result.getResponse().getHeaders("Set-Cookie").size()));
-
-        verify(authService).register(any(), anyString());
-    }
-
-    @Test
-    void registerShouldReturnConflictWhenEmailExists() throws Exception {
-        when(authService.register(any(), anyString()))
-                .thenThrow(new AuthException(HttpStatus.CONFLICT, "Email already registered"));
-
-        String payload = toJson(new RegisterRequest(
-                "user",
-                sampleEmail(),
-                sampleValidPassword(),
-                1L
-        ));
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("Email already registered"));
-    }
-
-    @Test
-    void registerShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
-        when(authService.register(any(), anyString()))
-                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
-
-        String payload = toJson(new RegisterRequest(
-                "user",
-                sampleEmail(),
-                samplePasswordWithoutSpecial(),
-                1L
-        ));
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Account not activated. Please activate your account."));
     }
 
     @Test
@@ -208,37 +168,95 @@ class AuthControllerTest {
     }
 
     @Test
-    void registerShouldReturnBadRequestWhenPasswordIsInvalid() throws Exception {
-        String payload = toJson(new RegisterRequest(
-                "user",
-                sampleEmail(),
-                "x1",
-                1L
-        ));
+    void activateAccountShouldDelegateToService() throws Exception {
+        when(authService.activateAccount(any(), anyString()))
+                .thenReturn(new AuthenticatedFlowResult("Account activated successfully", sampleEmail()));
+        when(postAuthenticationService.authenticateUserAndIssueTokens(anyString(), any(), any()))
+                .thenReturn(new AuthTokens("access-token", "refresh-token"));
 
-        mockMvc.perform(post("/api/auth/register")
+        String payload = toJson(new ActivateAccountRequest(UUID.randomUUID().toString(), sampleValidPassword()));
+
+        mockMvc.perform(post("/api/auth/activate-account")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Account activated successfully"));
+
+        verify(authService).activateAccount(any(), anyString());
+        verify(postAuthenticationService).authenticateUserAndIssueTokens(anyString(), any(), any());
+    }
+
+    @Test
+    void activateAccountShouldReturnConflictWhenUserIsAlreadyActivated() throws Exception {
+        when(authService.activateAccount(any(), anyString()))
+                .thenThrow(new AuthException(HttpStatus.CONFLICT, "User account is already activated"));
+
+        String payload = toJson(new ActivateAccountRequest(UUID.randomUUID().toString(), sampleValidPassword()));
+
+        mockMvc.perform(post("/api/auth/activate-account")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("User account is already activated"));
+    }
+
+    @Test
+    void activateAccountShouldReturnBadRequestWhenTokenIsMissing() throws Exception {
+        String payload = """
+                {"token":"","password":"%s"}
+                """.formatted(sampleValidPassword());
+
+        mockMvc.perform(post("/api/auth/activate-account")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("password")));
+                .andExpect(jsonPath("$.message", containsString("token")));
 
         verifyNoInteractions(authService);
     }
 
     @Test
-    void registerShouldReturnBadRequestWhenCityIdIsNull() throws Exception {
-        String payload = toJson(new RegisterRequest(
-                "user",
-                sampleEmail(),
-                sampleValidPassword(),
-                null
-        ));
+    void activateAccountShouldReturnPasswordPolicyMessageWhenServiceRejectsPassword() throws Exception {
+        when(authService.activateAccount(any(), anyString()))
+                .thenThrow(new PasswordPolicyException("Password must include at least one special character"));
 
-        mockMvc.perform(post("/api/auth/register")
+        String payload = toJson(new ActivateAccountRequest(UUID.randomUUID().toString(), samplePasswordWithoutSpecial()));
+
+        mockMvc.perform(post("/api/auth/activate-account")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("cityId")));
+                .andExpect(jsonPath("$.message").value("Password must include at least one special character"));
+    }
+
+    @Test
+    void resendActivationShouldDelegateToService() throws Exception {
+        when(authService.resendActivation(any(), anyString()))
+                .thenReturn(new AuthMessageResponse("If the account exists and is not activated, an activation email has been sent"));
+
+        String payload = toJson(new ResendActivationRequest(sampleEmail()));
+
+        mockMvc.perform(post("/api/auth/resend-activation")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message")
+                        .value("If the account exists and is not activated, an activation email has been sent"));
+
+        verify(authService).resendActivation(any(), anyString());
+    }
+
+    @Test
+    void resendActivationShouldReturnBadRequestWhenEmailIsMissing() throws Exception {
+        String payload = """
+                {"email":""}
+                """;
+
+        mockMvc.perform(post("/api/auth/resend-activation")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("email")));
 
         verifyNoInteractions(authService);
     }
@@ -311,6 +329,8 @@ class AuthControllerTest {
     void resetPasswordShouldDelegateToService() throws Exception {
         when(authService.resetPassword(any(), anyString()))
                 .thenReturn(new AuthMessageResponse("Password updated successfully"));
+        when(postAuthenticationService.authenticateUserAndIssueTokens(anyString(), any(), any()))
+                .thenReturn(new AuthTokens("access-token", "refresh-token"));
 
         String payload = toJson(new ResetPasswordRequest(sampleEmail(), sampleOtp(), sampleValidPassword()));
 
@@ -321,6 +341,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Password updated successfully"));
 
         verify(authService).resetPassword(any(), anyString());
+        verify(postAuthenticationService).authenticateUserAndIssueTokens(anyString(), any(), any());
     }
 
     @Test

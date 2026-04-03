@@ -4,6 +4,7 @@ import com.example.nexus.modules.location.entity.City;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -48,6 +49,23 @@ public class AppUser {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
     private Client client;
+
+    @Column(name = "activation_token", unique = true, length = 255)
+    private String activationToken;
+
+    @Column(name = "activation_token_expires_at")
+    private Instant activationTokenExpiresAt;
+
+    @Builder.Default
+    @Column(name = "activation_required", nullable = false, columnDefinition = "boolean default false")
+    private boolean activationRequired = false;
+
+    @Builder.Default
+    @Column(name = "first_login", nullable = false, columnDefinition = "boolean default false")
+    private boolean firstLogin = false;
+
+    @Column(name = "created_by")
+    private Long createdBy;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

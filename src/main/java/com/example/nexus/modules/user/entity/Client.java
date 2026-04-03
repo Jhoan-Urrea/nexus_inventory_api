@@ -45,6 +45,9 @@ public class Client {
     @Column(nullable = false)
     private ClientStatus status;
 
+    @Column(name = "created_by")
+    private Long createdBy;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

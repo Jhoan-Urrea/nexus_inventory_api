@@ -1,8 +1,12 @@
 package com.example.nexus.modules.user.controller;
 
+import com.example.nexus.modules.auth.security.CurrentUserProvider;
 import com.example.nexus.modules.user.dto.CreateUserRequest;
 import com.example.nexus.modules.user.dto.UpdateUserRequest;
 import com.example.nexus.modules.user.dto.UserResponse;
+import com.example.nexus.modules.user.constants.RoleConstants;
+import com.example.nexus.modules.user.entity.AppUser;
+import com.example.nexus.modules.user.mapper.UserMapper;
 import com.example.nexus.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -27,17 +31,37 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final UserMapper userMapper;
+    private final CurrentUserProvider currentUserProvider;
 
-    @Operation(summary = "Listar usuarios", description = "Retorna todos los usuarios. Requiere rol ADMIN.")
+    @Operation(summary = "Listar usuarios", description = "ADMIN ve todos los usuarios; SALES_AGENT ve solo los creados por él.")
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Listado obtenido"),
             @ApiResponse(responseCode = "401", description = "No autenticado"),
             @ApiResponse(responseCode = "403", description = "Sin permisos")
     })
     public List<UserResponse> getAllUsers() {
-        return userService.findAllUsers();
+        if (currentUserProvider.hasRole(RoleConstants.ADMIN)) {
+            return toResponseList(userService.getAllUsers());
+        }
+
+        return toResponseList(userService.getUsersCreatedBy(currentUserProvider.getCurrentUserId()));
+    }
+
+    @Operation(summary = "Listar usuarios creados por el usuario actual")
+    @GetMapping("/created-by/me")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    public List<UserResponse> getUsersCreatedByCurrentUser() {
+        return toResponseList(userService.getUsersCreatedBy(currentUserProvider.getCurrentUserId()));
+    }
+
+    @Operation(summary = "Listar usuarios creados por un usuario específico", description = "ADMIN puede consultar cualquier creador; SALES_AGENT solo su propio ID.")
+    @GetMapping("/created-by/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    public List<UserResponse> getUsersCreatedBy(@PathVariable Long id) {
+        return toResponseList(userService.getUsersCreatedBy(id));
     }
 
     @Operation(summary = "Obtener usuario por ID", description = "Roles permitidos: ADMIN")
@@ -57,7 +81,11 @@ public class UserController {
         return userService.findCurrentUserByEmail(authentication.getName());
     }
 
-    @Operation(summary = "Crear usuario", description = "Crea un usuario y opcionalmente lo asocia a un clientId.")
+    @Operation(
+            summary = "Crear usuario",
+            description = "Crea un usuario pendiente de activacion y opcionalmente lo asocia a un clientId. "
+                    + "El campo password del request se conserva solo por compatibilidad y actualmente se ignora."
+    )
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @ApiResponses({
@@ -85,5 +113,11 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
         userService.deleteUser(id, authentication.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    private List<UserResponse> toResponseList(List<AppUser> users) {
+        return users.stream()
+                .map(userMapper::toResponse)
+                .toList();
     }
 }

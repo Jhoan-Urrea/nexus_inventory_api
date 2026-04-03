@@ -5,6 +5,7 @@ import com.example.nexus.modules.auth.exception.AuthException;
 import com.example.nexus.modules.auth.service.AuthErrorHandlingService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 @RequiredArgsConstructor
+@Slf4j
 public class ApiExceptionHandler {
 
     private final AuthErrorHandlingService authErrorHandlingService;
@@ -52,6 +54,30 @@ public class ApiExceptionHandler {
         }
         AuthErrorResponse body = authErrorHandlingService.build(status, message, request.getRequestURI());
         return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<AuthErrorResponse> handleBusinessException(
+            BusinessException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<AuthErrorResponse> handleDomainValidationException(
+            ValidationException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<AuthErrorResponse> handleNotFoundException(
+            NotFoundException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
@@ -106,5 +132,20 @@ public class ApiExceptionHandler {
         }
 
         return authErrorHandlingService.build(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<AuthErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception processing {} {}", request.getMethod(), request.getRequestURI(), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", request);
+    }
+
+    private ResponseEntity<AuthErrorResponse> buildResponse(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request
+    ) {
+        AuthErrorResponse body = authErrorHandlingService.build(status, message, request.getRequestURI());
+        return ResponseEntity.status(status).body(body);
     }
 }
