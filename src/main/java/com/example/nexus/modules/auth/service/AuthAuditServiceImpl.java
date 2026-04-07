@@ -3,6 +3,7 @@ package com.example.nexus.modules.auth.service;
 import com.example.nexus.modules.auth.entity.AuthAuditEventType;
 import com.example.nexus.modules.auth.entity.AuthAuditLog;
 import com.example.nexus.modules.auth.repository.AuthAuditLogRepository;
+import com.example.nexus.modules.metrics.service.NexusMetricsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 public class AuthAuditServiceImpl implements AuthAuditService {
 
     private final AuthAuditLogRepository authAuditLogRepository;
+    private final NexusMetricsService nexusMetricsService;
 
     @Override
     public void audit(AuthAuditEventType eventType, String email, String ipAddress, String details) {
@@ -22,6 +24,7 @@ public class AuthAuditServiceImpl implements AuthAuditService {
                 .build();
 
         authAuditLogRepository.save(log);
+        nexusMetricsService.onAuthAuditEvent(eventType);
     }
 
     private String sanitize(String value) {
