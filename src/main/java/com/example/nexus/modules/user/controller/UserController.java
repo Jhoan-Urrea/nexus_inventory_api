@@ -107,6 +107,33 @@ public class UserController {
         return userService.updateUser(id, request, authentication.getName());
     }
 
+    @Operation(
+            summary = "Reactivar usuario",
+            description = "Solo INACTIVE → ACTIVE. No aplica a usuarios BLOCKED."
+    )
+    @PutMapping("/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuario reactivado"),
+            @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
+            @ApiResponse(responseCode = "409", description = "Ya activo, bloqueado o no inactivo")
+    })
+    public UserResponse activateUser(@PathVariable Long id, Authentication authentication) {
+        return userService.activateUser(id, authentication.getName());
+    }
+
+    @Operation(summary = "Desactivar usuario (estado INACTIVE, borrado lógico)")
+    @PutMapping("/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuario desactivado"),
+            @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
+            @ApiResponse(responseCode = "409", description = "Ya estaba inactivo")
+    })
+    public UserResponse deactivateUser(@PathVariable Long id, Authentication authentication) {
+        return userService.deactivateUser(id, authentication.getName());
+    }
+
     @Operation(summary = "Eliminar usuario")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

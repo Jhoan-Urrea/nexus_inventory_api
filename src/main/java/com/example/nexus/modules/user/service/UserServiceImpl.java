@@ -42,6 +42,9 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService {
     private static final String MSG_USER_NOT_FOUND = "User not found";
     private static final String MSG_INACTIVE_USER_UPDATE = "Inactive users cannot be edited";
+    private static final String MSG_USER_ALREADY_ACTIVE = "User is already active";
+    private static final String MSG_BLOCKED_CANNOT_BE_REACTIVATED_HERE = "Blocked users cannot be reactivated through this endpoint";
+    private static final String MSG_USER_ALREADY_INACTIVE = "User is already inactive";
     private static final long ACTIVATION_TOKEN_VALIDITY_HOURS = 24;
     private static final int USERNAME_MAX_LENGTH = 100;
 
@@ -210,10 +213,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void deleteUser(Long id, String actorEmail) {
         AppUser actor = requireUserByEmail(actorEmail);
 
-        AppUser user = userRepository.findById(id)
+        AppUser user = userRepository.findWithRolesById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND));
 
         if (actor.getId().equals(user.getId())) {
@@ -224,6 +228,45 @@ public class UserServiceImpl implements UserService {
             user.setStatus(UserStatus.INACTIVE);
             userRepository.save(user);
         }
+    }
+
+    @Override
+    @Transactional
+    public UserResponse activateUser(Long id, String actorEmail) {
+        requireUserByEmail(actorEmail);
+
+        AppUser user = userRepository.findWithRolesById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND));
+
+        if (user.getStatus() == UserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_USER_ALREADY_ACTIVE);
+        }
+        if (user.getStatus() == UserStatus.BLOCKED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_BLOCKED_CANNOT_BE_REACTIVATED_HERE);
+        }
+
+        user.setStatus(UserStatus.ACTIVE);
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public UserResponse deactivateUser(Long id, String actorEmail) {
+        AppUser actor = requireUserByEmail(actorEmail);
+
+        AppUser user = userRepository.findWithRolesById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_USER_NOT_FOUND));
+
+        if (actor.getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrators cannot delete themselves");
+        }
+
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_USER_ALREADY_INACTIVE);
+        }
+
+        user.setStatus(UserStatus.INACTIVE);
+        return userMapper.toResponse(userRepository.save(user));
     }
 
     private City loadCity(Long cityId) {

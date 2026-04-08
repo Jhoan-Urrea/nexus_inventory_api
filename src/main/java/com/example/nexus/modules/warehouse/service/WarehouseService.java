@@ -14,5 +14,8 @@ public interface WarehouseService {
     List<WarehouseResponseDTO> findAll();
     WarehouseResponseDTO delete(Long id);
     WarehouseResponseDTO disable(Long id);
+
+    /** Reactiva la bodega ({@code active=true}) y alinea el estado del catálogo a uno operacional, si existe. */
+    WarehouseResponseDTO enable(Long id);
 }
 

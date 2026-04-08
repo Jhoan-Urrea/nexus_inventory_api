@@ -369,7 +369,7 @@ class AppUserServiceTest {
                 .build();
 
         when(userRepository.findWithRolesByEmailIgnoreCase("admin@nexus.com")).thenReturn(Optional.of(actor));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(actor));
+        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(actor));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -427,13 +427,91 @@ class AppUserServiceTest {
                 .build();
 
         when(userRepository.findWithRolesByEmailIgnoreCase("admin@nexus.com")).thenReturn(Optional.of(actor));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(target));
+        when(userRepository.findWithRolesById(2L)).thenReturn(Optional.of(target));
 
         userService.deleteUser(2L, "admin@nexus.com");
 
         assertEquals(UserStatus.INACTIVE, target.getStatus());
         verify(userRepository).save(target);
         verify(userRepository, never()).delete(any(AppUser.class));
+    }
+
+    @Test
+    void activateUserShouldSetInactiveToActive() {
+        AppUser inactive = AppUser.builder()
+                .id(2L)
+                .email("user@nexus.com")
+                .status(UserStatus.INACTIVE)
+                .roles(Set.of())
+                .build();
+        UserResponse response = new UserResponse(
+                2L, "user", "user@nexus.com", "ACTIVE", Set.of("CLIENT"), 1L, null, null, null
+        );
+
+        when(userRepository.findWithRolesByEmailIgnoreCase("admin@nexus.com")).thenReturn(Optional.of(
+                AppUser.builder().id(1L).email("admin@nexus.com").build()
+        ));
+        when(userRepository.findWithRolesById(2L)).thenReturn(Optional.of(inactive));
+        when(userRepository.save(any(AppUser.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userMapper.toResponse(any(AppUser.class))).thenReturn(response);
+
+        UserResponse result = userService.activateUser(2L, "admin@nexus.com");
+
+        assertEquals("ACTIVE", result.status());
+        assertEquals(UserStatus.ACTIVE, inactive.getStatus());
+        verify(userRepository).save(inactive);
+    }
+
+    @Test
+    void activateUserShouldRejectBlockedUser() {
+        AppUser blocked = AppUser.builder()
+                .id(2L)
+                .status(UserStatus.BLOCKED)
+                .build();
+        when(userRepository.findWithRolesByEmailIgnoreCase("admin@nexus.com")).thenReturn(Optional.of(
+                AppUser.builder().id(1L).email("admin@nexus.com").build()
+        ));
+        when(userRepository.findWithRolesById(2L)).thenReturn(Optional.of(blocked));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.activateUser(2L, "admin@nexus.com")
+        );
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+        verify(userRepository, never()).save(any(AppUser.class));
+    }
+
+    @Test
+    void activateUserShouldRejectWhenAlreadyActive() {
+        AppUser active = AppUser.builder().id(2L).status(UserStatus.ACTIVE).build();
+        when(userRepository.findWithRolesByEmailIgnoreCase("a@nexus.com")).thenReturn(Optional.of(
+                AppUser.builder().id(1L).email("a@nexus.com").build()
+        ));
+        when(userRepository.findWithRolesById(2L)).thenReturn(Optional.of(active));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.activateUser(2L, "a@nexus.com")
+        );
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+    }
+
+    @Test
+    void deactivateUserShouldRejectWhenAlreadyInactive() {
+        AppUser actor = AppUser.builder().id(1L).email("admin@nexus.com").build();
+        AppUser target = AppUser.builder().id(2L).status(UserStatus.INACTIVE).build();
+        when(userRepository.findWithRolesByEmailIgnoreCase("admin@nexus.com")).thenReturn(Optional.of(actor));
+        when(userRepository.findWithRolesById(2L)).thenReturn(Optional.of(target));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.deactivateUser(2L, "admin@nexus.com")
+        );
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+        verify(userRepository, never()).save(any(AppUser.class));
     }
 
     @Test
