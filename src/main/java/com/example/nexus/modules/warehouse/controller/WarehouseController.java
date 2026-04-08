@@ -89,4 +89,20 @@ public class WarehouseController {
     public ResponseEntity<WarehouseResponseDTO> disable(@PathVariable Long id) {
         return ResponseEntity.ok(warehouseService.disable(id));
     }
+
+    @PatchMapping("/{id}/enable")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Reactivar bodega",
+            description = "Pone active=true y sincroniza el estado del catálogo a una entrada operacional cuando existe. "
+                    + "Si la bodega ya está activa, devuelve el estado actual (idempotente)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bodega activa o reactivada"),
+            @ApiResponse(responseCode = "404", description = "Bodega no encontrada"),
+            @ApiResponse(responseCode = "403", description = "Sin permisos")
+    })
+    public ResponseEntity<WarehouseResponseDTO> enable(@PathVariable Long id) {
+        return ResponseEntity.ok(warehouseService.enable(id));
+    }
 }

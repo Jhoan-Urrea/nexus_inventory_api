@@ -82,6 +82,21 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     @Override
+    public WarehouseResponseDTO enable(Long id) {
+        Warehouse warehouse = repository.findByIdWithAssociations(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_WAREHOUSE_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(warehouse.getActive())) {
+            return mapper.toResponseDTO(warehouse);
+        }
+
+        warehouse.setActive(true);
+        syncOperationalStatusFromCatalog(warehouse);
+
+        return mapper.toResponseDTO(repository.save(warehouse));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public WarehouseResponseDTO findById(Long id) {
         return repository.findByIdWithAssociations(id)
@@ -136,6 +151,24 @@ public class WarehouseServiceImpl implements WarehouseService {
         statusCatalogRepository.findByEntityTypeId(entityTypeId)
                 .stream()
                 .filter(s -> s != null && s.getIsOperational() != null && !s.getIsOperational())
+                .findFirst()
+                .ifPresent(warehouse::setStatus);
+    }
+
+    /**
+     * Alinea el estado del catálogo a una entrada operacional del mismo {@code entityType}, si existe.
+     */
+    private void syncOperationalStatusFromCatalog(Warehouse warehouse) {
+        if (warehouse.getStatus() == null || warehouse.getStatus().getEntityType() == null) {
+            return;
+        }
+        Long entityTypeId = warehouse.getStatus().getEntityType().getId();
+        if (entityTypeId == null) {
+            return;
+        }
+        statusCatalogRepository.findByEntityTypeId(entityTypeId)
+                .stream()
+                .filter(s -> s != null && Boolean.TRUE.equals(s.getIsOperational()))
                 .findFirst()
                 .ifPresent(warehouse::setStatus);
     }

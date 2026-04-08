@@ -30,4 +30,14 @@ public interface UserService {
     UserResponse updateUser(Long id, UpdateUserRequest request, String actorEmail);
 
     void deleteUser(Long id, String actorEmail);
+
+    /**
+     * Reactivación explícita: solo {@code INACTIVE} → {@code ACTIVE}.
+     */
+    UserResponse activateUser(Long id, String actorEmail);
+
+    /**
+     * Desactivación explícita (misma semántica que borrado lógico): pasa a {@code INACTIVE}.
+     */
+    UserResponse deactivateUser(Long id, String actorEmail);
 }
