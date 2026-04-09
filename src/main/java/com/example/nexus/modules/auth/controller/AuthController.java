@@ -2,16 +2,19 @@ package com.example.nexus.modules.auth.controller;
 
 import com.example.nexus.config.AppSecurityProperties;
 import com.example.nexus.config.AuthCookieProperties;
+import com.example.nexus.modules.auth.dto.ActivateAccountRequest;
 import com.example.nexus.modules.auth.dto.AuthMessageResponse;
 import com.example.nexus.modules.auth.dto.AuthResponse;
 import com.example.nexus.modules.auth.dto.ChangePasswordRequest;
 import com.example.nexus.modules.auth.dto.ForgotPasswordRequest;
 import com.example.nexus.modules.auth.dto.LoginRequest;
-import com.example.nexus.modules.auth.dto.RegisterRequest;
+import com.example.nexus.modules.auth.dto.ResendActivationRequest;
 import com.example.nexus.modules.auth.dto.ResetPasswordRequest;
 import com.example.nexus.modules.auth.dto.VerifyPasswordRecoveryOtpRequest;
+import com.example.nexus.modules.auth.model.AuthenticatedFlowResult;
 import com.example.nexus.modules.auth.model.AuthTokens;
 import com.example.nexus.modules.auth.service.AuthService;
+import com.example.nexus.modules.auth.service.PostAuthenticationService;
 import com.example.nexus.modules.auth.util.CookieUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -25,6 +28,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,10 +39,11 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "Endpoints para login, registro, tokens y recuperacion de contrasena")
+@Tag(name = "Authentication", description = "Endpoints para login, activacion, tokens y recuperacion de contrasena")
 public class AuthController {
 
     private final AuthService authService;
+    private final PostAuthenticationService postAuthenticationService;
     private final AppSecurityProperties appSecurityProperties;
     private final AuthCookieProperties authCookieProperties;
 
@@ -54,25 +60,9 @@ public class AuthController {
             HttpServletResponse response
     ) {
         AuthTokens authTokens = authService.login(request, resolveClientIp(httpRequest));
+        postAuthenticationService.authenticateUser(request.email(), httpRequest, response);
         attachAuthCookies(response, authTokens);
         return ResponseEntity.ok(new AuthResponse("Login successful"));
-    }
-
-    @PostMapping("/register")
-    @Operation(summary = "Registrar un nuevo usuario")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Usuario registrado"),
-            @ApiResponse(responseCode = "400", description = "Datos invalidos"),
-            @ApiResponse(responseCode = "409", description = "Email ya registrado")
-    })
-    public ResponseEntity<AuthResponse> register(
-            @Valid @RequestBody RegisterRequest request,
-            HttpServletRequest httpRequest,
-            HttpServletResponse response
-    ) {
-        AuthTokens authTokens = authService.register(request, resolveClientIp(httpRequest));
-        attachAuthCookies(response, authTokens);
-        return ResponseEntity.ok(new AuthResponse("User registered successfully"));
     }
 
     @PostMapping("/refresh")
@@ -110,8 +100,43 @@ public class AuthController {
         try {
             return authService.logout(refreshToken, resolveClientIp(httpRequest));
         } finally {
+            clearAuthenticatedSession(httpRequest, response);
             clearAuthCookies(response);
         }
+    }
+
+    @PostMapping("/activate-account")
+    @Operation(summary = "Activar cuenta usando token de activacion")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cuenta activada"),
+            @ApiResponse(responseCode = "400", description = "Token invalido, expirado o password invalido"),
+            @ApiResponse(responseCode = "409", description = "La cuenta ya fue activada")
+    })
+    public AuthMessageResponse activateAccount(
+            @Valid @RequestBody ActivateAccountRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
+    ) {
+        AuthenticatedFlowResult activationResult = authService.activateAccount(request, resolveClientIp(httpRequest));
+        AuthTokens authTokens = postAuthenticationService.authenticateUserAndIssueTokens(
+                activationResult.email(),
+                httpRequest,
+                response
+        );
+        attachAuthCookies(response, authTokens);
+        return new AuthMessageResponse(activationResult.message());
+    }
+
+    @PostMapping("/resend-activation")
+    @Operation(summary = "Reenviar correo de activacion")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Solicitud procesada")
+    })
+    public AuthMessageResponse resendActivation(
+            @Valid @RequestBody ResendActivationRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return authService.resendActivation(request, resolveClientIp(httpRequest));
     }
 
     @PostMapping("/password/forgot")
@@ -143,9 +168,17 @@ public class AuthController {
     })
     public AuthMessageResponse resetPassword(
             @Valid @RequestBody ResetPasswordRequest request,
-            HttpServletRequest httpRequest
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
     ) {
-        return authService.resetPassword(request, resolveClientIp(httpRequest));
+        AuthMessageResponse authMessageResponse = authService.resetPassword(request, resolveClientIp(httpRequest));
+        AuthTokens authTokens = postAuthenticationService.authenticateUserAndIssueTokens(
+                request.email(),
+                httpRequest,
+                response
+        );
+        attachAuthCookies(response, authTokens);
+        return authMessageResponse;
     }
 
     @PostMapping("/password/change")
@@ -189,5 +222,12 @@ public class AuthController {
     private void clearAuthCookies(HttpServletResponse response) {
         CookieUtils.clearCookie(response, authCookieProperties.getAccessTokenName(), authCookieProperties);
         CookieUtils.clearCookie(response, authCookieProperties.getRefreshTokenName(), authCookieProperties);
+    }
+
+    private void clearAuthenticatedSession(HttpServletRequest request, HttpServletResponse response) {
+        SecurityContextLogoutHandler logoutHandler = new SecurityContextLogoutHandler();
+        logoutHandler.setInvalidateHttpSession(true);
+        logoutHandler.setClearAuthentication(true);
+        logoutHandler.logout(request, response, SecurityContextHolder.getContext().getAuthentication());
     }
 }

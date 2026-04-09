@@ -3,7 +3,6 @@ package com.example.nexus.modules.auth.service;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -25,6 +24,7 @@ import com.example.nexus.modules.auth.repository.PasswordResetTokenRepository;
 import com.example.nexus.modules.auth.repository.RefreshTokenRepository;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.repository.AppUserRepository;
+import com.example.nexus.util.EmailUtils;
 
 import lombok.RequiredArgsConstructor;
 
@@ -49,6 +49,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     private final PasswordEncoder passwordEncoder;
     private final AuthAuditService authAuditService;
     private final PasswordPolicyService passwordPolicyService;
+    private final PasswordChangeNotificationService passwordChangeNotificationService;
 
     @PostConstruct
     void validateSecurityConfiguration() {
@@ -70,7 +71,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         }
 
         try {
-            appUserRepository.findByEmail(email)
+            appUserRepository.findByEmailIgnoreCase(email)
                     .ifPresent(user -> createOtpAndSendEmail(request, user));
 
             return new AuthMessageResponse("If the email exists, recovery instructions were generated");
@@ -101,7 +102,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
 
         PasswordResetToken resetToken = requireValidOtp(request.email(), request.code());
 
-        AppUser user = appUserRepository.findByEmail(resetToken.getEmail())
+        AppUser user = appUserRepository.findByEmailIgnoreCase(resetToken.getEmail())
                 .orElseThrow(() -> new AuthException(HttpStatus.BAD_REQUEST, "User not found"));
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
@@ -111,6 +112,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
         revokeActiveRefreshTokens(resetToken.getEmail());
 
         authAuditService.audit(AuthAuditEventType.PASSWORD_RESET, user.getEmail(), ipAddress, "Password reset completed");
+        passwordChangeNotificationService.sendPasswordChangedEmail(user.getEmail());
 
         return new AuthMessageResponse("Password updated successfully");
     }
@@ -205,7 +207,7 @@ public class PasswordRecoveryServiceImpl implements PasswordRecoveryService {
     }
 
     private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+        return EmailUtils.normalizeEmail(email);
     }
 
     private String normalizeCode(String code) {

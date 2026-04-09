@@ -13,7 +13,11 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
 
     boolean existsByEmail(String email);
 
+    boolean existsByEmailIgnoreCase(String email);
+
     boolean existsByEmailAndIdNot(String email, Long id);
+
+    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
 
     boolean existsByDocumentNumber(String documentNumber);
 

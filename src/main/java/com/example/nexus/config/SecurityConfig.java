@@ -21,6 +21,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
 
@@ -31,20 +32,20 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_AUTH_ENDPOINTS = {
             "/api/auth/login",
-            "/api/auth/register",
             "/api/auth/refresh",
             "/api/auth/logout",
+            "/api/auth/activate-account",
+            "/api/auth/resend-activation",
             "/api/auth/password/forgot",
             "/api/auth/password/verify",
             "/api/auth/password/reset"
     };
 
-    private static final String[] CSRF_IGNORED_AUTH_ENDPOINTS = {
-            "/api/auth/login",
-            "/api/auth/register",
-            "/api/auth/refresh",
-            "/api/auth/logout"
-    };
+    /**
+     * Public POST endpoints that must stay reachable without CSRF bootstrap.
+     * Do not add /api/auth/password/change here because it remains authenticated.
+     */
+    private static final String[] CSRF_IGNORED_AUTH_ENDPOINTS = PUBLIC_AUTH_ENDPOINTS;
 
     private static final String[] SWAGGER_ENDPOINTS = {
             "/v3/api-docs/**",
@@ -93,12 +94,20 @@ public class SecurityConfig {
         return repository;
     }
 
+    @Bean
+    public HttpSessionSecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
     private CsrfTokenRequestHandler csrfTokenRequestHandler() {
         return new SpaCsrfTokenRequestHandler();
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            HttpSessionSecurityContextRepository securityContextRepository
+    ) throws Exception {
 
         if (appSecurityProperties.isCsrfEnabled()) {
             http.csrf(csrf -> csrf
@@ -138,8 +147,11 @@ public class SecurityConfig {
 
                     auth.anyRequest().authenticated();
                 })
+                .securityContext(securityContext -> securityContext
+                        .securityContextRepository(securityContextRepository)
+                )
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .authenticationEntryPoint(authAuthenticationEntryPoint)

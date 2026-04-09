@@ -39,6 +39,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,6 +79,9 @@ class PasswordRecoveryServiceImplTest {
     @Mock
     private AuthAuditService authAuditService;
 
+    @Mock
+    private PasswordChangeNotificationService passwordChangeNotificationService;
+
     @InjectMocks
     private PasswordRecoveryServiceImpl passwordRecoveryService;
 
@@ -89,12 +93,12 @@ class PasswordRecoveryServiceImplTest {
 
     @Test
     void forgotPasswordShouldGenerateOtpAndSendEmailWhenUserExists() {
-        String email = "tester+" + UUID.randomUUID() + "@example.test";
-        ForgotPasswordRequest request = new ForgotPasswordRequest(email);
-        AppUser user = AppUser.builder().id(5L).email(email).build();
-        PasswordResetToken mappedToken = PasswordResetToken.builder().email(email).build();
+        String normalizedEmail = "tester+" + UUID.randomUUID() + "@example.test";
+        ForgotPasswordRequest request = new ForgotPasswordRequest("  " + normalizedEmail.toUpperCase() + "  ");
+        AppUser user = AppUser.builder().id(5L).email(normalizedEmail).build();
+        PasswordResetToken mappedToken = PasswordResetToken.builder().email(normalizedEmail).build();
 
-        when(appUserRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(appUserRepository.findByEmailIgnoreCase(normalizedEmail)).thenReturn(Optional.of(user));
         when(passwordRecoveryMapper.toEntity(request)).thenReturn(mappedToken);
 
         AuthMessageResponse response = passwordRecoveryService.forgotPassword(request, "127.0.0.1");
@@ -103,25 +107,25 @@ class PasswordRecoveryServiceImplTest {
 
         ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
         verify(passwordResetTokenRepository).save(tokenCaptor.capture());
-        verify(passwordRecoveryEmailService).sendPasswordRecoveryOtpEmail(eq(email), eq(tokenCaptor.getValue().getCode()));
+        verify(passwordRecoveryEmailService).sendPasswordRecoveryOtpEmail(eq(normalizedEmail), eq(tokenCaptor.getValue().getCode()));
         verify(authAuditService).audit(
                 AuthAuditEventType.PASSWORD_FORGOT,
-                email,
+                normalizedEmail,
                 "127.0.0.1",
                 "Password recovery requested"
         );
 
         PasswordResetToken savedToken = tokenCaptor.getValue();
-        assertEquals(email, savedToken.getEmail());
+        assertEquals(normalizedEmail, savedToken.getEmail());
         assertTrue(savedToken.getExpiresAt().isAfter(Instant.now()));
         assertEquals(6, savedToken.getCode().length());
     }
 
     @Test
     void forgotPasswordShouldReturnGenericMessageWhenUserDoesNotExist() {
-        String email = "missing+" + UUID.randomUUID() + "@example.test";
-        ForgotPasswordRequest request = new ForgotPasswordRequest(email);
-        when(appUserRepository.findByEmail(email)).thenReturn(Optional.empty());
+        String normalizedEmail = "missing+" + UUID.randomUUID() + "@example.test";
+        ForgotPasswordRequest request = new ForgotPasswordRequest("  " + normalizedEmail.toUpperCase() + "  ");
+        when(appUserRepository.findByEmailIgnoreCase(normalizedEmail)).thenReturn(Optional.empty());
 
         AuthMessageResponse response = passwordRecoveryService.forgotPassword(request, "127.0.0.1");
 
@@ -130,7 +134,7 @@ class PasswordRecoveryServiceImplTest {
         verify(passwordRecoveryEmailService, never()).sendPasswordRecoveryOtpEmail(any(), any());
         verify(authAuditService).audit(
                 AuthAuditEventType.PASSWORD_FORGOT,
-                email,
+                normalizedEmail,
                 "127.0.0.1",
                 "Password recovery requested"
         );
@@ -138,16 +142,16 @@ class PasswordRecoveryServiceImplTest {
 
     @Test
     void forgotPasswordShouldPropagateWhenEmailDeliveryFails() {
-        String email = "tester+" + UUID.randomUUID() + "@example.test";
-        ForgotPasswordRequest request = new ForgotPasswordRequest(email);
-        AppUser user = AppUser.builder().id(5L).email(email).build();
-        PasswordResetToken mappedToken = PasswordResetToken.builder().email(email).build();
+        String normalizedEmail = "tester+" + UUID.randomUUID() + "@example.test";
+        ForgotPasswordRequest request = new ForgotPasswordRequest("  " + normalizedEmail.toUpperCase() + "  ");
+        AppUser user = AppUser.builder().id(5L).email(normalizedEmail).build();
+        PasswordResetToken mappedToken = PasswordResetToken.builder().email(normalizedEmail).build();
 
-        when(appUserRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(appUserRepository.findByEmailIgnoreCase(normalizedEmail)).thenReturn(Optional.of(user));
         when(passwordRecoveryMapper.toEntity(request)).thenReturn(mappedToken);
         doThrow(new AuthException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Unable to send recovery email"))
                 .when(passwordRecoveryEmailService)
-                .sendPasswordRecoveryOtpEmail(eq(email), any());
+                .sendPasswordRecoveryOtpEmail(eq(normalizedEmail), any());
 
         AuthException exception = assertThrows(
                 AuthException.class,
@@ -157,7 +161,7 @@ class PasswordRecoveryServiceImplTest {
         assertEquals("Unable to send recovery email", exception.getMessage());
         verify(authAuditService).audit(
                 AuthAuditEventType.PASSWORD_FORGOT,
-                email,
+                normalizedEmail,
                 "127.0.0.1",
                 "Password recovery requested"
         );
@@ -235,7 +239,7 @@ class PasswordRecoveryServiceImplTest {
                 .build();
 
         when(passwordResetTokenRepository.findFirstByEmailAndUsedFalseOrderByCreatedAtDesc(email)).thenReturn(Optional.of(token));
-        when(appUserRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(appUserRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.of(user));
         when(passwordEncoder.encode(newPwd)).thenReturn("encoded-password");
         when(passwordResetTokenRepository.findByEmailAndUsedFalse(email)).thenReturn(List.of(token));
         when(refreshTokenRepository.findByEmailAndRevokedFalse(email)).thenReturn(List.of(refreshToken));
@@ -256,6 +260,7 @@ class PasswordRecoveryServiceImplTest {
                 "127.0.0.1",
                 "Password reset completed"
         );
+        verify(passwordChangeNotificationService).sendPasswordChangedEmail(email);
     }
 
     @Test
@@ -276,8 +281,9 @@ class PasswordRecoveryServiceImplTest {
 
         assertEquals("Password must include at least one special character", exception.getMessage());
         verify(passwordResetTokenRepository, never()).findFirstByEmailAndUsedFalseOrderByCreatedAtDesc(anyString());
-        verify(appUserRepository, never()).findByEmail(anyString());
+        verify(appUserRepository, never()).findByEmailIgnoreCase(anyString());
         verify(passwordEncoder, never()).encode(anyString());
+        verifyNoInteractions(passwordChangeNotificationService);
     }
 
     @Test

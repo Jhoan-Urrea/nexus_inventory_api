@@ -35,9 +35,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     private static final Set<String> PUBLIC_AUTH_PATHS = Set.of(
             "/api/auth/login",
-            "/api/auth/register",
             "/api/auth/refresh",
             "/api/auth/logout",
+            "/api/auth/activate-account",
+            "/api/auth/resend-activation",
             "/api/auth/password/forgot",
             "/api/auth/password/verify",
             "/api/auth/password/reset"

@@ -1,0 +1,10 @@
+Hola,
+
+Tu cuenta en {{appName}} fue creada correctamente.
+
+Para activar tu acceso, abre este enlace:
+{{activationUrl}}
+
+Si no esperabas este correo, contactanos en {{supportEmail}}.
+
+Equipo {{appName}}
