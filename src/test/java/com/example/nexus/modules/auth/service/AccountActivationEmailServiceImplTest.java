@@ -74,7 +74,7 @@ class AccountActivationEmailServiceImplTest {
         EmailMessage message = emailCaptor.getValue();
         assertEquals("no-reply@nexus.local", message.from());
         assertEquals("user@example.test", message.to());
-        assertEquals("Nexus - Activa tu cuenta", message.subject());
+        assertEquals("Nexus — Activa tu cuenta", message.subject());
         assertEquals("Activate account", message.textBody());
         assertEquals("<p>Activate account</p>", message.htmlBody());
     }

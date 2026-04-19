@@ -32,7 +32,7 @@ public class SectorController {
 
     @Operation(summary = "Listar sectores por bodega")
     @GetMapping("/warehouse/{warehouseId}")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR','SALES_AGENT')")
     public List<SectorResponseDTO> getByWarehouse(@PathVariable Long warehouseId) {
         return sectorService.findByWarehouseId(warehouseId);
     }

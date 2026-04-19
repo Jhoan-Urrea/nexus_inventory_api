@@ -1,0 +1,33 @@
+{{appName}} — Contrato #{{contractId}}: cómo pagar
+==============================================
+
+{{clientGreeting}}
+
+{{openingSectionPlain}}
+
+RESUMEN
+-------
+{{reservationSummaryPlain}}
+Contrato: #{{contractId}}
+Vigencia: {{contractStartDate}} — {{contractEndDate}}
+Unidades en contrato: {{rentalLineCount}}
+Total a pagar: {{totalAmountFormatted}}
+
+CÓMO PAGAR
+----------
+1) Inicia sesión en {{appName}} con tu usuario.
+2) Entra a "Mis contratos y pagos" (enlace abajo).
+3) Abre el contrato #{{contractId}} y revisa el monto total.
+4) Usa "Pagar con tarjeta (Stripe)" e ingresa los datos de la tarjeta.
+5) El monto del pago debe coincidir exactamente con el total del contrato. Cuando el pago se confirme, el contrato pasará a activo.
+
+ENLACE DIRECTO
+--------------
+{{contractsUrl}}
+
+Si no reconoces este contrato o el monto no es correcto, escribe a: {{supportEmail}}
+
+--
+Equipo {{appName}}
+
+(Mensaje automático; no respondas a esta dirección de envío.)

@@ -167,15 +167,26 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void shouldIgnoreAuthorizationHeaderWhenAccessCookieIsMissing() throws Exception {
+    void shouldAuthenticateFromBearerHeaderWhenAccessCookieIsMissing() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "Bearer header-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
+        String activeEmail = "bearer+" + UUID.randomUUID() + "@example.test";
+
+        UserDetails activeUser = User.withUsername(activeEmail)
+                .password("hash-" + UUID.randomUUID())
+                .authorities("ROLE_USER")
+                .build();
+
+        when(tokenLifecycleService.isAccessTokenRevoked("header-token")).thenReturn(false);
+        when(jwtService.extractUsername("header-token")).thenReturn(activeEmail);
+        when(userDetailsService.loadUserByUsername(activeEmail)).thenReturn(activeUser);
+        when(jwtService.isTokenValid("header-token", activeUser)).thenReturn(true);
 
         filter.doFilter(request, response, filterChain);
 
-        assertNull(SecurityContextHolder.getContext().getAuthentication());
-        verifyNoInteractions(jwtService, userDetailsService, tokenLifecycleService, accountStateService);
+        assertEquals(activeEmail, SecurityContextHolder.getContext().getAuthentication().getName());
+        verify(accountStateService).assertCanAuthenticate(activeUser);
         verify(filterChain).doFilter(request, response);
     }
 

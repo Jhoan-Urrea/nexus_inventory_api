@@ -15,4 +15,6 @@ public interface SectorRepository extends JpaRepository<Sector, Long> {
 
     // Para validar unicidad del código de sector dentro de una bodega
     boolean existsByCodeAndWarehouseId(String code, Long warehouseId);
+
+    long countByWarehouse_Id(Long warehouseId);
 }

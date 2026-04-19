@@ -1,0 +1,35 @@
+{{appName}} — Pago confirmado (contrato #{{contractId}})
+==============================================
+
+{{clientGreeting}}
+
+Hemos registrado correctamente tu pago aprobado asociado al contrato indicado abajo. Puedes conservar este correo como comprobante.
+
+CONTRATO
+--------
+Número: #{{contractId}}
+Estado: {{contractStatusLabel}}
+Vigencia del contrato: {{contractStartDate}} — {{contractEndDate}}
+Total del contrato: {{totalAmountFormatted}}
+Unidades en contrato: {{rentalLineCount}}
+
+DETALLE DEL PAGO
+----------------
+Monto pagado: {{paymentAmountFormatted}}
+Método: {{paymentMethod}}
+Referencia Stripe (PaymentIntent): {{stripePaymentIntentId}}
+Referencia interna: {{paymentInternalReference}}
+Fecha/hora registro del pago: {{paymentRegisteredAt}}
+
+{{activationHint}}
+
+VER CONTRATO Y PAGOS
+--------------------
+{{contractsUrl}}
+
+Soporte: {{supportEmail}}
+
+--
+Equipo {{appName}}
+
+(Mensaje automático; no respondas a esta dirección de envío.)

@@ -4,12 +4,12 @@ import com.example.nexus.modules.sales.dto.request.CreateReservationRequestDTO;
 import com.example.nexus.modules.sales.dto.response.ReservationResponseDTO;
 import com.example.nexus.modules.sales.entity.RentalUnit;
 import com.example.nexus.modules.sales.entity.Reservation;
+import com.example.nexus.modules.sales.entity.ReservationRentalUnit;
 import com.example.nexus.modules.sales.entity.ReservationStatus;
 import com.example.nexus.modules.sales.mapper.ReservationMapper;
 import com.example.nexus.modules.sales.repository.RentalUnitRepository;
 import com.example.nexus.modules.sales.repository.ReservationRepository;
 import com.example.nexus.modules.sales.security.OwnershipValidationService;
-import com.example.nexus.modules.sales.service.AvailabilityPolicyService;
 import com.example.nexus.modules.user.entity.Client;
 import com.example.nexus.modules.user.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +49,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final RentalAvailabilityService rentalAvailabilityService;
     private final OwnershipValidationService ownershipValidationService;
     private final AvailabilityPolicyService availabilityPolicyService;
+    private final ReservationCreatedClientEmailService reservationCreatedClientEmailService;
 
     @Value("${sales.reservation.expiration-minutes:30}")
     private long reservationExpirationMinutes;
@@ -57,22 +58,32 @@ public class ReservationServiceImpl implements ReservationService {
     @Transactional(rollbackFor = Exception.class)
     public ReservationResponseDTO createReservation(CreateReservationRequestDTO dto) {
         Client client = requireClient(dto.clientId());
-        RentalUnit rentalUnit = requireRentalUnitForUpdate(dto.rentalUnitId());
         validateReservationDateRange(dto.startDate(), dto.endDate());
-
-        validateAvailabilityForReservation(rentalUnit.getId(), dto.startDate(), dto.endDate());
 
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(reservationExpirationMinutes);
         Reservation reservation = reservationMapper.toEntity(
                 dto,
                 client,
-                rentalUnit,
                 generateReservationToken(),
                 STATUS_PENDING,
                 expiresAt
         );
+
+        List<Long> distinctSortedIds = dto.rentalUnitIds().stream().distinct().sorted().toList();
+        for (Long unitId : distinctSortedIds) {
+            RentalUnit rentalUnit = requireRentalUnitForUpdate(unitId);
+            validateAvailabilityForReservation(rentalUnit.getId(), dto.startDate(), dto.endDate());
+            
+            ReservationRentalUnit rru = ReservationRentalUnit.builder()
+                    .rentalUnit(rentalUnit)
+                    .build();
+            reservation.addRentalUnit(rru);
+        }
+
         try {
-            return reservationMapper.toResponseDTO(reservationRepository.save(reservation));
+            Reservation saved = reservationRepository.save(reservation);
+            reservationCreatedClientEmailService.sendReservationCreatedEmail(saved.getId());
+            return reservationMapper.toResponseDTO(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Reservation token duplicado", ex);
         }
@@ -89,7 +100,7 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public List<ReservationResponseDTO> findAll() {
-        List<Reservation> reservations = ownershipValidationService.isAdmin(currentAuthentication())
+        List<Reservation> reservations = ownershipValidationService.hasElevatedSalesAccess(currentAuthentication())
                 ? reservationRepository.findAllByOrderByCreatedAtDesc()
                 : reservationRepository.findAllByClientIdOrderByCreatedAtDesc(
                         ownershipValidationService.requireClientId(currentAuthentication())

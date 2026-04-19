@@ -13,6 +13,9 @@ public interface ContractService {
 
     List<ContractResponseDTO> findAll();
 
+    /** Contratos en estado ACTIVE del cliente autenticado (p. ej. Mis bodegas). */
+    List<ContractResponseDTO> findMyActiveContracts();
+
     ContractResponseDTO completeContract(Long contractId);
 
     ContractResponseDTO cancelContract(Long contractId);

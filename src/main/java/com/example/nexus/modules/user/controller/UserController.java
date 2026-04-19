@@ -1,12 +1,14 @@
 package com.example.nexus.modules.user.controller;
 
 import com.example.nexus.modules.auth.security.CurrentUserProvider;
+import com.example.nexus.modules.user.dto.ClientResponse;
 import com.example.nexus.modules.user.dto.CreateUserRequest;
 import com.example.nexus.modules.user.dto.UpdateUserRequest;
 import com.example.nexus.modules.user.dto.UserResponse;
 import com.example.nexus.modules.user.constants.RoleConstants;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.mapper.UserMapper;
+import com.example.nexus.modules.user.service.ClientService;
 import com.example.nexus.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,6 +33,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final ClientService clientService;
     private final UserMapper userMapper;
     private final CurrentUserProvider currentUserProvider;
 
@@ -62,6 +65,17 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
     public List<UserResponse> getUsersCreatedBy(@PathVariable Long id) {
         return toResponseList(userService.getUsersCreatedBy(id));
+    }
+
+    /**
+     * Debe declararse antes que {@code /{id}}: si no, GET /api/users/clients se interpreta como id="clients" y falla la conversión a Long.
+     * Misma respuesta que {@code GET /api/clients}.
+     */
+    @Operation(summary = "Listar clientes", description = "Alias de GET /api/clients para rutas bajo /api/users.")
+    @GetMapping("/clients")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    public List<ClientResponse> listClients() {
+        return clientService.findAllClients();
     }
 
     @Operation(summary = "Obtener usuario por ID", description = "Roles permitidos: ADMIN")

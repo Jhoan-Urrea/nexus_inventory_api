@@ -27,12 +27,17 @@ public class RentalUnitMapper {
     }
 
     public RentalUnitDTO toDto(RentalUnit entity) {
+        return toDtoWithStatus(entity, "AVAILABLE");
+    }
+
+    public RentalUnitDTO toDtoWithStatus(RentalUnit entity, String availabilityStatus) {
         return new RentalUnitDTO(
                 entity.getId(),
                 entity.getWarehouse() != null ? entity.getWarehouse().getId() : null,
                 entity.getSector() != null ? entity.getSector().getId() : null,
                 entity.getStorageSpace() != null ? entity.getStorageSpace().getId() : null,
-                entity.getEntityType() != null ? entity.getEntityType().getId() : null
+                entity.getEntityType() != null ? entity.getEntityType().getId() : null,
+                availabilityStatus
         );
     }
 

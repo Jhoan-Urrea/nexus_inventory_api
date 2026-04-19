@@ -19,32 +19,35 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @EntityGraph(attributePaths = {
             "client",
-            "rentalUnit",
-            "rentalUnit.entityType",
-            "rentalUnit.warehouse",
-            "rentalUnit.sector",
-            "rentalUnit.storageSpace"
+            "rentalUnits",
+            "rentalUnits.rentalUnit",
+            "rentalUnits.rentalUnit.entityType",
+            "rentalUnits.rentalUnit.warehouse",
+            "rentalUnits.rentalUnit.sector",
+            "rentalUnits.rentalUnit.storageSpace"
     })
     @Query("SELECT r FROM Reservation r WHERE r.id = :reservationId")
     Optional<Reservation> findByIdWithAssociations(@Param("reservationId") Long reservationId);
 
     @EntityGraph(attributePaths = {
             "client",
-            "rentalUnit",
-            "rentalUnit.entityType",
-            "rentalUnit.warehouse",
-            "rentalUnit.sector",
-            "rentalUnit.storageSpace"
+            "rentalUnits",
+            "rentalUnits.rentalUnit",
+            "rentalUnits.rentalUnit.entityType",
+            "rentalUnits.rentalUnit.warehouse",
+            "rentalUnits.rentalUnit.sector",
+            "rentalUnits.rentalUnit.storageSpace"
     })
     Optional<Reservation> findByReservationToken(String reservationToken);
 
     @EntityGraph(attributePaths = {
             "client",
-            "rentalUnit",
-            "rentalUnit.entityType",
-            "rentalUnit.warehouse",
-            "rentalUnit.sector",
-            "rentalUnit.storageSpace"
+            "rentalUnits",
+            "rentalUnits.rentalUnit",
+            "rentalUnits.rentalUnit.entityType",
+            "rentalUnits.rentalUnit.warehouse",
+            "rentalUnits.rentalUnit.sector",
+            "rentalUnits.rentalUnit.storageSpace"
     })
     List<Reservation> findAllByOrderByCreatedAtDesc();
 
@@ -53,7 +56,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     @Query("""
             SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
             FROM Reservation r
-            WHERE r.rentalUnit.id = :rentalUnitId
+            JOIN r.rentalUnits ru
+            WHERE ru.rentalUnit.id = :rentalUnitId
               AND (:excludeReservationId IS NULL OR r.id <> :excludeReservationId)
               AND r.status = :activeStatus
               AND r.startDate <= :endDate
@@ -73,9 +77,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByStatusAndExpiresAtBefore(Integer status, LocalDateTime referenceTime);
 
     @Query("""
-            SELECT DISTINCT r.rentalUnit.id
+            SELECT DISTINCT ru.rentalUnit.id
             FROM Reservation r
-            WHERE r.rentalUnit.id IN :rentalUnitIds
+            JOIN r.rentalUnits ru
+            WHERE ru.rentalUnit.id IN :rentalUnitIds
               AND r.status = :activeStatus
               AND r.startDate <= :endDate
               AND r.endDate >= :startDate
@@ -94,11 +99,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @EntityGraph(attributePaths = {
             "client",
-            "rentalUnit",
-            "rentalUnit.entityType",
-            "rentalUnit.warehouse",
-            "rentalUnit.sector",
-            "rentalUnit.storageSpace"
+            "rentalUnits",
+            "rentalUnits.rentalUnit",
+            "rentalUnits.rentalUnit.entityType",
+            "rentalUnits.rentalUnit.warehouse",
+            "rentalUnits.rentalUnit.sector",
+            "rentalUnits.rentalUnit.storageSpace"
     })
     List<Reservation> findAllByClientIdOrderByCreatedAtDesc(Long clientId);
 }

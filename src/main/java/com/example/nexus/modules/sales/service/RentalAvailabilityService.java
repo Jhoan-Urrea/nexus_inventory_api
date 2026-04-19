@@ -26,4 +26,11 @@ public interface RentalAvailabilityService {
             Long sectorId,
             Long storageSpaceId
     );
+
+    java.util.List<com.example.nexus.modules.sales.dto.response.RentalUnitDTO> getCatalogWithAvailability(
+            LocalDate startDate,
+            LocalDate endDate
+    );
+
+    boolean validateBulk(com.example.nexus.modules.sales.dto.request.RentalBulkAvailabilityRequestDTO request);
 }

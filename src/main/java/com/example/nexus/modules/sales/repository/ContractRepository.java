@@ -57,4 +57,23 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
             ORDER BY c.startDate DESC, c.id DESC
             """)
     List<Contract> findAllByClientIdWithAssociations(@Param("clientId") Long clientId);
+
+    @Query("""
+            SELECT DISTINCT c
+            FROM Contract c
+            LEFT JOIN FETCH c.client
+            LEFT JOIN FETCH c.rentalUnits cru
+            LEFT JOIN FETCH cru.rentalUnit ru
+            LEFT JOIN FETCH ru.entityType
+            LEFT JOIN FETCH ru.warehouse
+            LEFT JOIN FETCH ru.sector
+            LEFT JOIN FETCH ru.storageSpace
+            WHERE c.client.id = :clientId
+            AND c.status = :status
+            ORDER BY c.startDate DESC, c.id DESC
+            """)
+    List<Contract> findAllByClientIdAndStatusWithAssociations(
+            @Param("clientId") Long clientId,
+            @Param("status") Integer status
+    );
 }

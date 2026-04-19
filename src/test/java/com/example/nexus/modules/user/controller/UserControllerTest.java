@@ -8,6 +8,7 @@ import com.example.nexus.modules.auth.security.JwtAuthenticationFilter;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.mapper.UserMapper;
 import com.example.nexus.modules.user.dto.UserResponse;
+import com.example.nexus.modules.user.service.ClientService;
 import com.example.nexus.modules.user.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,9 @@ class UserControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private ClientService clientService;
 
     @MockitoBean
     private UserMapper userMapper;

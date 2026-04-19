@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu contrato y el pago</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;line-height:1.6;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+    {{preheaderText}}
+</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f1f5f9;padding:24px 12px;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+                <tr>
+                    <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:28px 32px;text-align:center;">
+                        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">{{appName}}</p>
+                        <p style="margin:8px 0 0;font-size:14px;font-weight:400;color:#94a3b8;">{{headerSubtitle}}</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px 32px 8px;">
+                        <p style="margin:0 0 16px;font-size:16px;color:#0f172a;">{{clientGreeting}}</p>
+                        {{openingSectionHtml}}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 32px;">
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                            <tr>
+                                <td style="padding:16px 20px;">
+                                    <p style="margin:0 0 8px;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;">Resumen</p>
+                                    {{reservationSummaryHtml}}
+                                    <p style="margin:4px 0;font-size:14px;color:#0f172a;"><strong>Contrato</strong> #{{contractId}}</p>
+                                    <p style="margin:4px 0;font-size:14px;color:#0f172a;"><strong>Vigencia</strong> {{contractStartDate}} — {{contractEndDate}}</p>
+                                    <p style="margin:4px 0;font-size:14px;color:#0f172a;"><strong>Unidades</strong> {{rentalLineCount}}</p>
+                                    <p style="margin:12px 0 0;font-size:18px;font-weight:700;color:#0f172a;">Total a pagar: {{totalAmountFormatted}}</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:24px 32px 8px;">
+                        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#0f172a;">Cómo pagar</p>
+                        <ol style="margin:0;padding-left:20px;font-size:14px;color:#334155;">
+                            <li style="margin-bottom:8px;">Inicia sesión en {{appName}} con tu usuario.</li>
+                            <li style="margin-bottom:8px;">Entra a <strong>Mis contratos y pagos</strong> (o el enlace de abajo).</li>
+                            <li style="margin-bottom:8px;">Abre el <strong>contrato #{{contractId}}</strong> y revisa el monto total.</li>
+                            <li style="margin-bottom:8px;">Usa la opción <strong>Pagar con tarjeta (Stripe)</strong> e ingresa los datos de la tarjeta.</li>
+                            <li>El monto del pago debe coincidir <strong>exactamente</strong> con el total del contrato. Cuando el pago se confirme, el contrato pasará a activo.</li>
+                        </ol>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 32px 28px;text-align:center;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                            <tr>
+                                <td style="border-radius:8px;background-color:#2563eb;">
+                                    <a href="{{contractsUrl}}" target="_blank" rel="noopener noreferrer"
+                                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+                                        Ir a mis contratos y pagos
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin:20px 0 0;font-size:13px;color:#64748b;">
+                            Enlace directo:<br>
+                            <a href="{{contractsUrl}}" style="color:#2563eb;word-break:break-all;">{{contractsUrl}}</a>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:0 32px 32px;">
+                        <p style="margin:0;font-size:13px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:20px;">
+                            Si no reconoces este contrato o el monto no es correcto, contacta a soporte:
+                            <a href="mailto:{{supportEmail}}" style="color:#2563eb;">{{supportEmail}}</a>.
+                        </p>
+                        <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;">Equipo {{appName}}</p>
+                    </td>
+                </tr>
+            </table>
+            <p style="margin:16px 0 0;font-size:11px;color:#94a3b8;max-width:560px;">
+                Mensaje automático; no respondas a esta dirección de envío.
+            </p>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

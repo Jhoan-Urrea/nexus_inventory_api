@@ -22,6 +22,10 @@ public class PaymentMapper {
     }
 
     public PaymentResponseDTO toResponseDTO(Payment entity) {
+        return toResponseDTO(entity, null);
+    }
+
+    public PaymentResponseDTO toResponseDTO(Payment entity, String stripeClientSecret) {
         return new PaymentResponseDTO(
                 entity.getId(),
                 entity.getContract() != null ? entity.getContract().getId() : null,
@@ -30,7 +34,8 @@ public class PaymentMapper {
                 entity.getPaymentStatus() != null ? entity.getPaymentStatus().name() : null,
                 entity.getPaymentMethod(),
                 entity.getPaymentReference(),
-                entity.getPaymentExternalReference()
+                entity.getPaymentExternalReference(),
+                stripeClientSecret
         );
     }
 }

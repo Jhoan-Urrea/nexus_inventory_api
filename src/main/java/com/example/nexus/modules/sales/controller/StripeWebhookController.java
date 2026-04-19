@@ -2,10 +2,12 @@ package com.example.nexus.modules.sales.controller;
 
 import com.example.nexus.modules.sales.entity.Payment;
 import com.example.nexus.modules.sales.entity.PaymentStatus;
-import com.example.nexus.modules.sales.entity.StripeWebhookEvent;
 import com.example.nexus.modules.sales.repository.PaymentRepository;
-import com.example.nexus.modules.sales.repository.StripeWebhookEventRepository;
+import com.example.nexus.modules.sales.service.ContractDraftActivationService;
+import com.example.nexus.modules.sales.service.PaymentApprovedClientEmailService;
 import com.example.nexus.modules.sales.service.StripeWebhookService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
@@ -31,19 +33,25 @@ public class StripeWebhookController {
     private static final Logger log = LoggerFactory.getLogger(StripeWebhookController.class);
 
     private final PaymentRepository paymentRepository;
-    private final StripeWebhookEventRepository stripeWebhookEventRepository;
     private final StripeWebhookService stripeWebhookService;
+    private final ContractDraftActivationService contractDraftActivationService;
+    private final PaymentApprovedClientEmailService paymentApprovedClientEmailService;
+    private final ObjectMapper objectMapper;
     private final String endpointSecret;
 
     public StripeWebhookController(
             PaymentRepository paymentRepository,
-            StripeWebhookEventRepository stripeWebhookEventRepository,
             StripeWebhookService stripeWebhookService,
+            ContractDraftActivationService contractDraftActivationService,
+            PaymentApprovedClientEmailService paymentApprovedClientEmailService,
+            ObjectMapper objectMapper,
             @Value("${stripe.webhook.secret}") String endpointSecret
     ) {
         this.paymentRepository = paymentRepository;
-        this.stripeWebhookEventRepository = stripeWebhookEventRepository;
         this.stripeWebhookService = stripeWebhookService;
+        this.contractDraftActivationService = contractDraftActivationService;
+        this.paymentApprovedClientEmailService = paymentApprovedClientEmailService;
+        this.objectMapper = objectMapper;
         this.endpointSecret = endpointSecret;
     }
 
@@ -75,44 +83,78 @@ public class StripeWebhookController {
     }
 
     private void handlePaymentIntent(Event event, PaymentStatus status, String payload) {
-        Optional<Object> deserialized = event.getDataObjectDeserializer().getObject().map(obj -> (Object) obj);
-        if (deserialized.isEmpty()) {
-            return;
-        }
-
-        Object stripeObject = deserialized.get();
-        if (!(stripeObject instanceof PaymentIntent paymentIntent)) {
-            return;
-        }
-
-        String paymentIntentId = paymentIntent.getId();
+        String paymentIntentId = resolvePaymentIntentId(event, payload);
         if (paymentIntentId == null || paymentIntentId.isBlank()) {
+            log.warn("Stripe webhook {}: no se pudo resolver payment_intent id (payload API {})", event.getId(), event.getApiVersion());
             return;
         }
 
-        Optional<Payment> payment = paymentRepository.findByPaymentExternalReference(paymentIntentId);
+        Optional<Payment> payment = paymentRepository.findByPaymentExternalReference(paymentIntentId.trim());
         if (payment.isEmpty()) {
-            log.warn("Stripe webhook received for unknown payment intent: {}", paymentIntentId);
-            return;
-        }
-
-        if (stripeWebhookEventRepository.existsByEventId(event.getId())) {
-            return;
-        }
-
-        try {
-            stripeWebhookService.recordEvent(event, paymentIntentId, payload);
-        } catch (DataIntegrityViolationException ex) {
+            log.warn(
+                    "Stripe webhook: no hay pago local con payment_external_reference={} (revise que POST /api/sales/payments persista el pi antes de confirmar en el cliente)",
+                    paymentIntentId
+            );
             return;
         }
 
         updatePaymentStatus(payment.get(), status);
+
+        try {
+            stripeWebhookService.recordEvent(event, paymentIntentId.trim(), payload);
+        } catch (DataIntegrityViolationException ex) {
+            log.debug("Webhook evento Stripe duplicado {}, idempotencia OK", event.getId());
+        }
+    }
+
+    /**
+     * Con API recientes el deserializador de Stripe a veces no devuelve {@link PaymentIntent}; el JSON del evento si trae {@code data.object.id}.
+     */
+    private String resolvePaymentIntentId(Event event, String payload) {
+        Optional<Object> deserialized = event.getDataObjectDeserializer().getObject().map(obj -> (Object) obj);
+        if (deserialized.isPresent() && deserialized.get() instanceof PaymentIntent pi) {
+            return pi.getId();
+        }
+        if (deserialized.isPresent()) {
+            log.warn(
+                    "Stripe webhook {}: data.object es {} (no PaymentIntent). Se intenta extraer id del JSON.",
+                    event.getId(),
+                    deserialized.get().getClass().getName()
+            );
+        } else {
+            log.warn("Stripe webhook {}: getObject() vacio; se intenta extraer id del JSON.", event.getId());
+        }
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            JsonNode obj = root.path("data").path("object");
+            if (obj.isMissingNode() || obj.isNull()) {
+                return null;
+            }
+            if (!"payment_intent".equals(obj.path("object").asText())) {
+                return null;
+            }
+            String id = obj.path("id").asText(null);
+            return id != null && !id.isBlank() ? id : null;
+        } catch (Exception e) {
+            log.warn("Stripe webhook {}: error parseando payload: {}", event.getId(), e.getMessage());
+            return null;
+        }
     }
 
     private void updatePaymentStatus(Payment payment, PaymentStatus status) {
-        if (payment.getPaymentStatus() != status) {
+        PaymentStatus previous = payment.getPaymentStatus();
+        if (previous != status) {
             payment.setPaymentStatus(status);
             paymentRepository.save(payment);
+        }
+        if (status == PaymentStatus.APPROVED) {
+            contractDraftActivationService.activateIfDraftAndPaymentApproved(
+                    payment.getContract().getId(),
+                    PaymentStatus.APPROVED
+            );
+            if (previous != PaymentStatus.APPROVED) {
+                paymentApprovedClientEmailService.sendPaymentApprovedEmail(payment.getId());
+            }
         }
     }
 }

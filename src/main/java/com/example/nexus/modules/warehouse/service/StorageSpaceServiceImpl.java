@@ -12,6 +12,8 @@ import com.example.nexus.modules.warehouse.mapper.StorageSpaceMapper;
 import com.example.nexus.modules.warehouse.repository.SectorRepository;
 import com.example.nexus.modules.warehouse.repository.StorageSpaceRepository;
 import com.example.nexus.modules.warehouse.repository.StorageSpaceTypeRepository;
+import com.example.nexus.modules.warehouse.event.StorageSpaceCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class StorageSpaceServiceImpl implements StorageSpaceService {
     private final StorageSpaceTypeRepository storageSpaceTypeRepository;
     private final StatusCatalogRepository statusCatalogRepository;
     private final StorageSpaceMapper mapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public StorageSpaceResponseDTO create(CreateStorageSpaceRequestDTO dto) {
@@ -49,7 +52,9 @@ public class StorageSpaceServiceImpl implements StorageSpaceService {
         }
 
         StorageSpace entity = mapper.toEntity(dto, sector, type, status);
-        return mapper.toResponseDTO(repository.save(entity));
+        StorageSpace savedEntity = repository.save(entity);
+        eventPublisher.publishEvent(new StorageSpaceCreatedEvent(this, savedEntity.getId()));
+        return mapper.toResponseDTO(savedEntity);
     }
 
     @Override

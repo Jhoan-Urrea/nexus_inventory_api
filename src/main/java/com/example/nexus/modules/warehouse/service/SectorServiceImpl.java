@@ -10,6 +10,8 @@ import com.example.nexus.modules.warehouse.entity.Warehouse;
 import com.example.nexus.modules.warehouse.mapper.SectorMapper;
 import com.example.nexus.modules.warehouse.repository.SectorRepository;
 import com.example.nexus.modules.warehouse.repository.WarehouseRepository;
+import com.example.nexus.modules.warehouse.event.SectorCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class SectorServiceImpl implements SectorService {
     private final WarehouseRepository warehouseRepository;
     private final StatusCatalogRepository statusCatalogRepository;
     private final SectorMapper mapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public SectorResponseDTO create(CreateSectorRequestDTO dto) {
@@ -41,7 +44,9 @@ public class SectorServiceImpl implements SectorService {
         }
 
         Sector entity = mapper.toEntity(dto, warehouse, status);
-        return mapper.toResponseDTO(repository.save(entity));
+        Sector savedEntity = repository.save(entity);
+        eventPublisher.publishEvent(new SectorCreatedEvent(this, savedEntity.getId()));
+        return mapper.toResponseDTO(savedEntity);
     }
 
 
