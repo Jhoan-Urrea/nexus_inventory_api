@@ -1,0 +1,32 @@
+{{appName}} — Reserva #{{reservationId}}: proceso de contratación
+============================================================
+
+{{clientGreeting}}
+
+Se ha registrado una reserva a tu nombre en {{appName}}. Suele ser el primer paso de un proceso de contratación (hasta formalizar contrato y pago).
+
+Si no reconoces esta acción, revisa el detalle y contacta a soporte cuanto antes.
+
+DETALLE DE LA RESERVA
+---------------------
+Reserva: #{{reservationId}}
+Período solicitado: {{reservationStartDate}} — {{reservationEndDate}}
+Unidades: {{rentalUnitCount}}
+Vence (si no se convierte antes): {{reservationExpiresAt}}
+
+QUÉ SIGUE
+---------
+- La reserva puede convertirse en un contrato pendiente de pago.
+- Verás el avance desde "Mis reservas" en el panel.
+- Si todo es correcto, no necesitas hacer nada hasta el pago del contrato.
+
+ENLACE DIRECTO (Mis reservas)
+-----------------------------
+{{reservationsUrl}}
+
+Dudas o alertas: {{supportEmail}}
+
+--
+Equipo {{appName}}
+
+(Mensaje automático; no respondas a esta dirección de envío.)

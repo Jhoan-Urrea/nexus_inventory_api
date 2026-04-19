@@ -1,10 +1,21 @@
+{{appName}} — Activa tu cuenta
+================================
+
 Hola,
 
-Tu cuenta en {{appName}} fue creada correctamente.
+Hemos creado tu cuenta en {{appName}}. Para empezar a usar la plataforma, confirma tu correo y define tu contraseña abriendo el siguiente enlace (o cópialo en el navegador):
 
-Para activar tu acceso, abre este enlace:
 {{activationUrl}}
 
-Si no esperabas este correo, contactanos en {{supportEmail}}.
+VIGENCIA DEL ENLACE
+-------------------
+Este enlace deja de ser válido a las {{activationLinkValidityHours}} horas de su envío. Si caduca, solicita un nuevo correo desde la pantalla de inicio de sesión.
 
+¿NO SOLICITASTE ESTA CUENTA?
+----------------------------
+Ignora este mensaje. Nadie podrá activarla sin acceso a tu correo. Si crees que es un error, escríbenos a: {{supportEmail}}
+
+--
 Equipo {{appName}}
+
+(Este es un mensaje automático; no respondas a esta dirección de envío.)

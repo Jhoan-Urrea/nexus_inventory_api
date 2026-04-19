@@ -43,6 +43,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentGateway paymentGateway;
     private final OwnershipValidationService ownershipValidationService;
     private final ContractDraftActivationService contractDraftActivationService;
+    private final PaymentApprovedClientEmailService paymentApprovedClientEmailService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -99,6 +100,9 @@ public class PaymentServiceImpl implements PaymentService {
                 contract.getId(),
                 savedPayment.getPaymentStatus()
         );
+        if (savedPayment.getPaymentStatus() == PaymentStatus.APPROVED) {
+            paymentApprovedClientEmailService.sendPaymentApprovedEmail(savedPayment.getId());
+        }
         return paymentMapper.toResponseDTO(savedPayment, stripeClientSecret);
     }
 
@@ -173,6 +177,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         Payment pending = candidate.get();
+        PaymentStatus statusBeforeSync = pending.getPaymentStatus();
         PaymentGatewayResult refreshed = paymentGateway.retrievePaymentIntent(pending.getPaymentExternalReference());
 
         if (refreshed.status() == PaymentStatus.FAILED) {
@@ -187,6 +192,9 @@ public class PaymentServiceImpl implements PaymentService {
                 contract.getId(),
                 saved.getPaymentStatus()
         );
+        if (saved.getPaymentStatus() == PaymentStatus.APPROVED && statusBeforeSync != PaymentStatus.APPROVED) {
+            paymentApprovedClientEmailService.sendPaymentApprovedEmail(saved.getId());
+        }
         return Optional.of(paymentMapper.toResponseDTO(saved, refreshed.clientSecret()));
     }
 
