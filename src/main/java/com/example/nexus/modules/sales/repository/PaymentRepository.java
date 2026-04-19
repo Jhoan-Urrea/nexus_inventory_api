@@ -41,6 +41,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @EntityGraph(attributePaths = "contract")
     Optional<Payment> findByPaymentExternalReference(String paymentExternalReference);
 
+    @EntityGraph(attributePaths = {"contract", "contract.client"})
+    @Query("SELECT p FROM Payment p WHERE p.id = :id")
+    Optional<Payment> findByIdWithContractAndClient(@Param("id") Long id);
+
     @Query("SELECT p.contract.client.id FROM Payment p WHERE p.id = :paymentId")
     Optional<Long> findClientIdByPaymentId(@Param("paymentId") Long paymentId);
 }

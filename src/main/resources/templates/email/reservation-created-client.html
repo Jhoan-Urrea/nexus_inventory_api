@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva y contratación</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;line-height:1.6;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+    {{preheaderText}}
+</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f1f5f9;padding:24px 12px;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+                <tr>
+                    <td style="background:linear-gradient(135deg,#0f766e 0%,#115e59 100%);padding:28px 32px;text-align:center;">
+                        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">{{appName}}</p>
+                        <p style="margin:8px 0 0;font-size:14px;font-weight:400;color:#99f6e4;">Nueva reserva registrada</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px 32px 8px;">
+                        <p style="margin:0 0 16px;font-size:16px;color:#0f172a;">{{clientGreeting}}</p>
+                        <p style="margin:0 0 16px;font-size:15px;color:#334155;">
+                            Se ha registrado una <strong>reserva a tu nombre</strong> en {{appName}}. Esto suele ser el primer paso de un <strong>proceso de contratación</strong> (hasta formalizar contrato y pago).
+                        </p>
+                        <p style="margin:0 0 16px;font-size:15px;color:#334155;">
+                            Si <strong>no reconoces</strong> esta acción, revisa el detalle y contacta a soporte cuanto antes para evitar cargos o compromisos no deseados.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 32px;">
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f0fdfa;border-radius:8px;border:1px solid #99f6e4;">
+                            <tr>
+                                <td style="padding:16px 20px;">
+                                    <p style="margin:0 0 8px;font-size:13px;color:#0f766e;text-transform:uppercase;letter-spacing:0.04em;">Detalle de la reserva</p>
+                                    <p style="margin:4px 0;font-size:14px;color:#0f172a;"><strong>Reserva</strong> #{{reservationId}}</p>
+                                    <p style="margin:4px 0;font-size:14px;color:#0f172a;"><strong>Período solicitado</strong> {{reservationStartDate}} — {{reservationEndDate}}</p>
+                                    <p style="margin:4px 0;font-size:14px;color:#0f172a;"><strong>Unidades</strong> {{rentalUnitCount}}</p>
+                                    <p style="margin:4px 0;font-size:14px;color:#0f172a;"><strong>Vence (si no se convierte antes)</strong> {{reservationExpiresAt}}</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:24px 32px 8px;">
+                        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#0f172a;">Qué sigue</p>
+                        <ul style="margin:0;padding-left:20px;font-size:14px;color:#334155;">
+                            <li style="margin-bottom:8px;">La reserva puede convertirse en un <strong>contrato</strong> pendiente de pago.</li>
+                            <li style="margin-bottom:8px;">Podrás ver el avance desde <strong>Mis reservas</strong> en el panel.</li>
+                            <li>Si todo es correcto, no necesitas hacer nada hasta que te indiquemos el pago del contrato.</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 32px 28px;text-align:center;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                            <tr>
+                                <td style="border-radius:8px;background-color:#0d9488;">
+                                    <a href="{{reservationsUrl}}" target="_blank" rel="noopener noreferrer"
+                                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+                                        Ver mis reservas
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin:20px 0 0;font-size:13px;color:#64748b;">
+                            Enlace directo:<br>
+                            <a href="{{reservationsUrl}}" style="color:#0d9488;word-break:break-all;">{{reservationsUrl}}</a>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:0 32px 32px;">
+                        <p style="margin:0;font-size:13px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:20px;">
+                            Dudas o alertas de seguridad:
+                            <a href="mailto:{{supportEmail}}" style="color:#0d9488;">{{supportEmail}}</a>.
+                        </p>
+                        <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;">Equipo {{appName}}</p>
+                    </td>
+                </tr>
+            </table>
+            <p style="margin:16px 0 0;font-size:11px;color:#94a3b8;max-width:560px;">
+                Mensaje automático; no respondas a esta dirección de envío.
+            </p>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

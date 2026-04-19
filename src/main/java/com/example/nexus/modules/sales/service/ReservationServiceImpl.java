@@ -10,7 +10,6 @@ import com.example.nexus.modules.sales.mapper.ReservationMapper;
 import com.example.nexus.modules.sales.repository.RentalUnitRepository;
 import com.example.nexus.modules.sales.repository.ReservationRepository;
 import com.example.nexus.modules.sales.security.OwnershipValidationService;
-import com.example.nexus.modules.sales.service.AvailabilityPolicyService;
 import com.example.nexus.modules.user.entity.Client;
 import com.example.nexus.modules.user.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +49,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final RentalAvailabilityService rentalAvailabilityService;
     private final OwnershipValidationService ownershipValidationService;
     private final AvailabilityPolicyService availabilityPolicyService;
+    private final ReservationCreatedClientEmailService reservationCreatedClientEmailService;
 
     @Value("${sales.reservation.expiration-minutes:30}")
     private long reservationExpirationMinutes;
@@ -81,7 +81,9 @@ public class ReservationServiceImpl implements ReservationService {
         }
 
         try {
-            return reservationMapper.toResponseDTO(reservationRepository.save(reservation));
+            Reservation saved = reservationRepository.save(reservation);
+            reservationCreatedClientEmailService.sendReservationCreatedEmail(saved.getId());
+            return reservationMapper.toResponseDTO(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Reservation token duplicado", ex);
         }

@@ -58,6 +58,7 @@ public class ContractServiceImpl implements ContractService {
     private final RentalAvailabilityService rentalAvailabilityService;
     private final OwnershipValidationService ownershipValidationService;
     private final ContractStateMachineService contractStateMachineService;
+    private final ContractRegistrationClientEmailService contractRegistrationClientEmailService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -105,7 +106,9 @@ public class ContractServiceImpl implements ContractService {
         }
 
         contract.setTotalAmount(calculateTotalContractPrice(contract.getRentalUnits()));
-        return contractMapper.toResponseDTO(contractRepository.save(contract));
+        Contract saved = contractRepository.save(contract);
+        notifyClientContractRegistered(saved, null);
+        return contractMapper.toResponseDTO(saved);
     }
 
     private ContractResponseDTO createContractFromReservation(CreateContractRequest request) {
@@ -137,7 +140,12 @@ public class ContractServiceImpl implements ContractService {
         reservation.setExpiresAt(LocalDateTime.now());
         reservationRepository.save(reservation);
 
+        notifyClientContractRegistered(savedContract, reservation);
         return contractMapper.toResponseDTO(savedContract);
+    }
+
+    private void notifyClientContractRegistered(Contract contract, Reservation fromReservation) {
+        contractRegistrationClientEmailService.sendContractRegisteredToClient(contract, fromReservation);
     }
 
     @Override

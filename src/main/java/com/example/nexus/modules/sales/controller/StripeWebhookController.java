@@ -4,6 +4,7 @@ import com.example.nexus.modules.sales.entity.Payment;
 import com.example.nexus.modules.sales.entity.PaymentStatus;
 import com.example.nexus.modules.sales.repository.PaymentRepository;
 import com.example.nexus.modules.sales.service.ContractDraftActivationService;
+import com.example.nexus.modules.sales.service.PaymentApprovedClientEmailService;
 import com.example.nexus.modules.sales.service.StripeWebhookService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +35,7 @@ public class StripeWebhookController {
     private final PaymentRepository paymentRepository;
     private final StripeWebhookService stripeWebhookService;
     private final ContractDraftActivationService contractDraftActivationService;
+    private final PaymentApprovedClientEmailService paymentApprovedClientEmailService;
     private final ObjectMapper objectMapper;
     private final String endpointSecret;
 
@@ -41,12 +43,14 @@ public class StripeWebhookController {
             PaymentRepository paymentRepository,
             StripeWebhookService stripeWebhookService,
             ContractDraftActivationService contractDraftActivationService,
+            PaymentApprovedClientEmailService paymentApprovedClientEmailService,
             ObjectMapper objectMapper,
             @Value("${stripe.webhook.secret}") String endpointSecret
     ) {
         this.paymentRepository = paymentRepository;
         this.stripeWebhookService = stripeWebhookService;
         this.contractDraftActivationService = contractDraftActivationService;
+        this.paymentApprovedClientEmailService = paymentApprovedClientEmailService;
         this.objectMapper = objectMapper;
         this.endpointSecret = endpointSecret;
     }
@@ -138,7 +142,8 @@ public class StripeWebhookController {
     }
 
     private void updatePaymentStatus(Payment payment, PaymentStatus status) {
-        if (payment.getPaymentStatus() != status) {
+        PaymentStatus previous = payment.getPaymentStatus();
+        if (previous != status) {
             payment.setPaymentStatus(status);
             paymentRepository.save(payment);
         }
@@ -147,6 +152,9 @@ public class StripeWebhookController {
                     payment.getContract().getId(),
                     PaymentStatus.APPROVED
             );
+            if (previous != PaymentStatus.APPROVED) {
+                paymentApprovedClientEmailService.sendPaymentApprovedEmail(payment.getId());
+            }
         }
     }
 }

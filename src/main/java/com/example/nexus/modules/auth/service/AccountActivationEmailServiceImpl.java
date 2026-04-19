@@ -16,9 +16,11 @@ import java.util.Map;
 @Slf4j
 public class AccountActivationEmailServiceImpl implements AccountActivationEmailService {
 
+    /** Debe coincidir con la validez del token en {@link AuthServiceImpl} (reenvío / activación). */
+    private static final int ACTIVATION_LINK_VALIDITY_HOURS = 24;
+
     private static final String HTML_TEMPLATE = "account-activation.html";
     private static final String TEXT_TEMPLATE = "account-activation.txt";
-    private static final String SUBJECT = "Nexus - Activa tu cuenta";
 
     private final TemplateService templateService;
     private final EmailService emailService;
@@ -53,7 +55,7 @@ public class AccountActivationEmailServiceImpl implements AccountActivationEmail
             EmailMessage message = new EmailMessage(
                     requireConfigured(fromAddress, "Email sender is not configured"),
                     requireConfigured(email, "Recipient email is required"),
-                    SUBJECT,
+                    buildSubject(),
                     textBody,
                     htmlBody
             );
@@ -65,11 +67,16 @@ public class AccountActivationEmailServiceImpl implements AccountActivationEmail
         }
     }
 
+    private String buildSubject() {
+        return appName + " — Activa tu cuenta";
+    }
+
     private Map<String, Object> buildTemplateModel(String activationToken) {
         Map<String, Object> model = new HashMap<>();
         model.put("appName", appName);
         model.put("activationUrl", buildActivationUrl(activationToken));
         model.put("supportEmail", supportEmail);
+        model.put("activationLinkValidityHours", ACTIVATION_LINK_VALIDITY_HOURS);
         return model;
     }
 
