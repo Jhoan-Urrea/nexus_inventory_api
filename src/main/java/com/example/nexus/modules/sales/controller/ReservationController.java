@@ -45,21 +45,21 @@ public class ReservationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT','CLIENT')")
     @Operation(summary = "List reservations")
     public ResponseEntity<List<ReservationResponseDTO>> findAll() {
         return ResponseEntity.ok(reservationService.findAll());
     }
 
     @GetMapping("/id/{reservationId}")
-    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT','CLIENT')")
     @Operation(summary = "Get reservation by id")
     public ResponseEntity<ReservationResponseDTO> findById(@PathVariable Long reservationId) {
         return ResponseEntity.ok(reservationService.findById(reservationId));
     }
 
     @GetMapping({"/{reservationToken}", "/token/{reservationToken}"})
-    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT','CLIENT')")
     @Operation(summary = "Get reservation by token")
     public ResponseEntity<ReservationResponseDTO> getByToken(@PathVariable String reservationToken) {
         return ResponseEntity.ok(reservationService.getReservationByToken(reservationToken));

@@ -1,8 +1,10 @@
 package com.example.nexus.modules.sales.service;
 
 import com.example.nexus.modules.sales.dto.request.RentalAvailabilityRequestDTO;
+import com.example.nexus.modules.sales.dto.request.RentalBulkAvailabilityRequestDTO;
 import com.example.nexus.modules.sales.dto.response.AvailabilitySummaryResponseDTO;
 import com.example.nexus.modules.sales.dto.response.RentalAvailabilityResponseDTO;
+import com.example.nexus.modules.sales.dto.response.RentalUnitDTO;
 import com.example.nexus.modules.sales.entity.RentalUnit;
 import com.example.nexus.modules.sales.mapper.RentalUnitMapper;
 import com.example.nexus.modules.sales.repository.RentalUnitRepository;
@@ -14,6 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -198,6 +202,87 @@ public class RentalAvailabilityServiceImpl implements RentalAvailabilityService 
                 contracted,
                 LocalDateTime.now()
         );
+    }
+
+    @Override
+    public List<RentalUnitDTO> getCatalogWithAvailability(LocalDate startDate, LocalDate endDate) {
+        List<RentalUnit> allUnits = rentalUnitRepository.findAllByOrderByIdAsc();
+        
+        if (startDate == null || endDate == null) {
+            return allUnits.stream()
+                    .map(u -> rentalUnitMapper.toDtoWithStatus(u, "AVAILABLE"))
+                    .toList();
+        }
+
+        List<Long> allUnitIds = allUnits.stream().map(RentalUnit::getId).toList();
+        
+        LocalDateTime now = LocalDateTime.now();
+        List<Long> reservedIds = availabilityPolicyService.findReservedRentalUnitIds(allUnitIds, now, startDate, endDate);
+        List<Long> contractedIds = availabilityPolicyService.findContractedRentalUnitIds(allUnitIds, startDate, endDate);
+        
+        Set<Long> occupiedIds = new HashSet<>(reservedIds);
+        occupiedIds.addAll(contractedIds);
+
+        Map<Long, Long> warehouseToUnitId = new HashMap<>(); 
+        Map<Long, Long> sectorToUnitId = new HashMap<>(); 
+        Map<Long, List<Long>> childrenOfWarehouse = new HashMap<>();
+        Map<Long, List<Long>> childrenOfSector = new HashMap<>();
+
+        for (RentalUnit u : allUnits) {
+            if (u.getWarehouse() != null) {
+                if (u.getSector() == null && u.getStorageSpace() == null) warehouseToUnitId.put(u.getWarehouse().getId(), u.getId());
+                else childrenOfWarehouse.computeIfAbsent(u.getWarehouse().getId(), k -> new ArrayList<>()).add(u.getId());
+            }
+            if (u.getSector() != null) {
+                if (u.getStorageSpace() == null) sectorToUnitId.put(u.getSector().getId(), u.getId());
+                else childrenOfSector.computeIfAbsent(u.getSector().getId(), k -> new ArrayList<>()).add(u.getId());
+            }
+        }
+
+        return allUnits.stream()
+                .map(unit -> {
+                    String status = "AVAILABLE";
+                    if (occupiedIds.contains(unit.getId())) {
+                        status = "OCCUPIED";
+                    } else {
+                        boolean blockedByParent = false;
+                        if (unit.getStorageSpace() != null) {
+                            Long pSector = sectorToUnitId.get(unit.getSector().getId());
+                            if (pSector != null && occupiedIds.contains(pSector)) blockedByParent = true;
+                        }
+                        if (!blockedByParent && (unit.getStorageSpace() != null || unit.getSector() != null)) {
+                            Long pWarehouse = warehouseToUnitId.get(unit.getWarehouse().getId());
+                            if (pWarehouse != null && occupiedIds.contains(pWarehouse)) blockedByParent = true;
+                        }
+                        
+                        if (blockedByParent) {
+                            status = "BLOCKED_BY_PARENT";
+                        } else {
+                            boolean blockedByChild = false;
+                            if (unit.getWarehouse() != null && unit.getSector() == null && unit.getStorageSpace() == null) {
+                                List<Long> children = childrenOfWarehouse.get(unit.getWarehouse().getId());
+                                if (children != null && children.stream().anyMatch(occupiedIds::contains)) blockedByChild = true;
+                            } else if (unit.getSector() != null && unit.getStorageSpace() == null) {
+                                List<Long> children = childrenOfSector.get(unit.getSector().getId());
+                                if (children != null && children.stream().anyMatch(occupiedIds::contains)) blockedByChild = true;
+                            }
+                            
+                            if (blockedByChild) status = "BLOCKED_BY_CHILD";
+                        }
+                    }
+                    return rentalUnitMapper.toDtoWithStatus(unit, status);
+                })
+                .toList();
+    }
+
+    @Override
+    public boolean validateBulk(RentalBulkAvailabilityRequestDTO request) {
+        if (request.startDate() == null || request.endDate() == null || request.rentalUnitIds() == null) return false;
+        for (Long id : request.rentalUnitIds()) {
+            RentalAvailabilityResponseDTO res = validate(new RentalAvailabilityRequestDTO(id, request.startDate(), request.endDate(), null, null));
+            if (Boolean.FALSE.equals(res.available())) return false;
+        }
+        return true;
     }
 
     private void validateScope(Long warehouseId, Long sectorId, Long storageSpaceId) {

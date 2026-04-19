@@ -55,12 +55,22 @@ class CookieOnlyAuthenticationIntegrationTest {
     }
 
     @Test
-    void shouldReturn401WhenOnlyAuthorizationHeaderIsPresent() throws Exception {
+    void shouldAuthenticateWhenAuthorizationBearerPresentWithoutCookie() throws Exception {
+        String email = "bearer+" + UUID.randomUUID() + "@example.test";
+        UserDetails user = User.withUsername(email)
+                .password("hash-" + UUID.randomUUID())
+                .authorities("ROLE_USER")
+                .build();
+
+        when(tokenLifecycleService.isAccessTokenRevoked("header-token")).thenReturn(false);
+        when(jwtService.extractUsername("header-token")).thenReturn(email);
+        when(userDetailsService.loadUserByUsername(email)).thenReturn(user);
+        when(jwtService.isTokenValid("header-token", user)).thenReturn(true);
+
         mockMvc.perform(get("/api/cookie-auth-probe")
                         .header("Authorization", "Bearer header-token"))
-                .andExpect(status().isUnauthorized());
-
-        verifyNoInteractions(jwtService, userDetailsService, tokenLifecycleService, accountStateService);
+                .andExpect(status().isOk())
+                .andExpect(content().string("ok"));
     }
 
     @Test

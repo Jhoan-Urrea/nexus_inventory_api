@@ -32,14 +32,14 @@ public class StorageSpaceController {
 
     @Operation(summary = "Obtener espacio por código lógico")
     @GetMapping("/code/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR','SALES_AGENT')")
     public StorageSpaceResponseDTO getByCode(@PathVariable String code) {
         return storageSpaceService.findByCode(code);
     }
 
     @Operation(summary = "Listar espacios por sector")
     @GetMapping("/sector/{sectorId}")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR','SALES_AGENT')")
     public List<StorageSpaceResponseDTO> getBySector(@PathVariable Long sectorId) {
         return storageSpaceService.findBySectorId(sectorId);
     }

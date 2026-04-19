@@ -1,7 +1,6 @@
 package com.example.nexus.modules.sales.dto.request;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -11,7 +10,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record CreateContractRequest(
-        @NotBlank
+        @Positive
+        Long clientId,
+
         @Size(max = 100)
         String reservationToken,
 

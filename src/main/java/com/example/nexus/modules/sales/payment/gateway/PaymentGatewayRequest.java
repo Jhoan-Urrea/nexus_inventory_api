@@ -10,5 +10,6 @@ public record PaymentGatewayRequest(
         String paymentMethod,
         String paymentReference,
         String paymentExternalReference,
-        PaymentStatus requestedStatus
+        PaymentStatus requestedStatus,
+        String chargeCurrency
 ) {}

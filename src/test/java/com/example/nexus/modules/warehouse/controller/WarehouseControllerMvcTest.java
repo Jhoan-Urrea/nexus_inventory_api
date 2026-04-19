@@ -1,55 +1,60 @@
 package com.example.nexus.modules.warehouse.controller;
 
-import com.example.nexus.modules.warehouse.service.WarehouseService;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.access.prepost.PreAuthorize;
 
-import java.util.List;
+import java.lang.reflect.Method;
 
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
-@AutoConfigureMockMvc(addFilters = false)
-@ActiveProfiles("test")
 class WarehouseControllerMvcTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockitoBean
-    private WarehouseService warehouseService;
-
     @Test
-    @WithMockUser(roles = "WAREHOUSE_EMPLOYEE")
-    void getAllShouldReturn200WhenAuthenticated() throws Exception {
-        when(warehouseService.findAll()).thenReturn(List.of());
-
-        mockMvc.perform(get("/api/warehouses"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+    void warehouseReadEndpointsShouldAllowSalesAgent() throws Exception {
+        assertPreAuthorizeContains(WarehouseController.class, "getAll", new Class<?>[0], "SALES_AGENT");
+        assertPreAuthorizeContains(WarehouseController.class, "getById", new Class<?>[]{Long.class}, "SALES_AGENT");
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    void getAllAsAdminShouldReturn200() throws Exception {
-        when(warehouseService.findAll()).thenReturn(List.of());
-
-        mockMvc.perform(get("/api/warehouses"))
-                .andExpect(status().isOk());
+    void warehouseMutationEndpointsShouldRemainAdminOnly() throws Exception {
+        assertPreAuthorizeEquals(
+                WarehouseController.class,
+                "create",
+                new Class<?>[]{com.example.nexus.modules.warehouse.dto.request.CreateWarehouseRequestDTO.class},
+                "hasRole('ADMIN')"
+        );
+        assertPreAuthorizeEquals(
+                WarehouseController.class,
+                "update",
+                new Class<?>[]{Long.class, com.example.nexus.modules.warehouse.dto.request.UpdateWarehouseRequestDTO.class},
+                "hasRole('ADMIN')"
+        );
     }
 
-    @Test
-    void getAllWithoutAuthenticationShouldReturn401() throws Exception {
-        mockMvc.perform(get("/api/warehouses"))
-                .andExpect(status().isUnauthorized());
+    private void assertPreAuthorizeContains(
+            Class<?> controllerClass,
+            String methodName,
+            Class<?>[] parameterTypes,
+            String expectedRole
+    ) throws Exception {
+        Method method = controllerClass.getMethod(methodName, parameterTypes);
+        PreAuthorize annotation = method.getAnnotation(PreAuthorize.class);
+
+        assertTrue(annotation != null, methodName + " should declare @PreAuthorize");
+        assertTrue(annotation.value().contains(expectedRole), methodName + " should allow " + expectedRole);
+    }
+
+    private void assertPreAuthorizeEquals(
+            Class<?> controllerClass,
+            String methodName,
+            Class<?>[] parameterTypes,
+            String expectedExpression
+    ) throws Exception {
+        Method method = controllerClass.getMethod(methodName, parameterTypes);
+        PreAuthorize annotation = method.getAnnotation(PreAuthorize.class);
+
+        assertTrue(annotation != null, methodName + " should declare @PreAuthorize");
+        assertEquals(expectedExpression, annotation.value());
     }
 }

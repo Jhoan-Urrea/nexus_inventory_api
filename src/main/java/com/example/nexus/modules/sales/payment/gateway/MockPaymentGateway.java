@@ -24,17 +24,23 @@ public class MockPaymentGateway implements PaymentGateway {
         return new PaymentGatewayResult(
                 status,
                 request.paymentReference(),
-                externalReference
+                externalReference,
+                null
         );
     }
 
     @Override
+    public PaymentGatewayResult retrievePaymentIntent(String paymentExternalReference) {
+        return new PaymentGatewayResult(PaymentStatus.PENDING, null, paymentExternalReference, null);
+    }
+
+    @Override
     public PaymentGatewayResult confirmPayment(String paymentExternalReference) {
-        return new PaymentGatewayResult(PaymentStatus.APPROVED, null, paymentExternalReference);
+        return new PaymentGatewayResult(PaymentStatus.APPROVED, null, paymentExternalReference, null);
     }
 
     @Override
     public PaymentGatewayResult cancelPayment(String paymentExternalReference) {
-        return new PaymentGatewayResult(PaymentStatus.FAILED, null, paymentExternalReference);
+        return new PaymentGatewayResult(PaymentStatus.FAILED, null, paymentExternalReference, null);
     }
 }

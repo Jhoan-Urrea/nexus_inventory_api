@@ -34,14 +34,14 @@ public class StatusCatalogController {
 
     @Operation(summary = "Listar estados por tipo de entidad")
     @GetMapping("/entity-type/{entityTypeId}")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("isAuthenticated()")
     public List<StatusCatalogResponseDTO> getByEntityType(@PathVariable Long entityTypeId) {
         return statusCatalogService.findByEntityType(entityTypeId);
     }
 
     @Operation(summary = "Obtener estado del catalogo por id")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<StatusCatalogResponseDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(statusCatalogService.findById(id));
     }

@@ -7,18 +7,24 @@ import com.example.nexus.modules.sales.entity.RentalUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 @Component
 @RequiredArgsConstructor
 public class ContractRentalUnitMapper {
 
     private final RentalUnitMapper rentalUnitMapper;
 
-    public ContractRentalUnit toEntity(CreateContractRentalUnitRequestDTO dto, RentalUnit rentalUnit) {
+    public ContractRentalUnit toEntity(
+            CreateContractRentalUnitRequestDTO dto,
+            RentalUnit rentalUnit,
+            BigDecimal resolvedPrice
+    ) {
         return ContractRentalUnit.builder()
                 .rentalUnit(rentalUnit)
                 .startDate(dto.startDate())
                 .endDate(dto.endDate())
-                .price(dto.price())
+                .price(resolvedPrice)
                 .status(dto.status())
                 .build();
     }

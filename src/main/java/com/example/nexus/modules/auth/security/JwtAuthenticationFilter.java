@@ -41,7 +41,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/auth/resend-activation",
             "/api/auth/password/forgot",
             "/api/auth/password/verify",
-            "/api/auth/password/reset"
+            "/api/auth/password/reset",
+            "/api/payments/webhook/stripe"
     );
 
     private final JwtService jwtService;
@@ -129,17 +130,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         request.setAttribute(AUTH_ERROR_MESSAGE_ATTR, message);
     }
 
+    /** Cookie primero; si no hay, {@code Authorization: Bearer}. */
     private String extractJwt(HttpServletRequest request) {
-        if (request.getCookies() == null) {
-            return null;
-        }
-
-        for (Cookie cookie : request.getCookies()) {
-            if (authCookieProperties.getAccessTokenName().equals(cookie.getName())) {
-                return cookie.getValue();
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (authCookieProperties.getAccessTokenName().equals(cookie.getName())) {
+                    String value = cookie.getValue();
+                    if (value != null && !value.isBlank()) {
+                        return value;
+                    }
+                }
             }
         }
+        return extractBearerToken(request);
+    }
 
-        return null;
+    private static String extractBearerToken(HttpServletRequest request) {
+        String auth = request.getHeader("Authorization");
+        if (auth == null) {
+            return null;
+        }
+        auth = auth.trim();
+        final String prefix = "Bearer ";
+        if (auth.length() <= prefix.length() || !auth.regionMatches(true, 0, prefix, 0, prefix.length())) {
+            return null;
+        }
+        String token = auth.substring(prefix.length()).trim();
+        return token.isEmpty() ? null : token;
     }
 }

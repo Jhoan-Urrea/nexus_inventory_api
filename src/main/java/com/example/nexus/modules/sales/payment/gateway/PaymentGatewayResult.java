@@ -5,5 +5,6 @@ import com.example.nexus.modules.sales.entity.PaymentStatus;
 public record PaymentGatewayResult(
         PaymentStatus status,
         String paymentReference,
-        String paymentExternalReference
+        String paymentExternalReference,
+        String clientSecret
 ) {}

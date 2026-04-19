@@ -1,7 +1,5 @@
 package com.example.nexus.modules.sales.dto.request;
 
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -18,9 +16,10 @@ public record CreateContractRentalUnitRequestDTO(
         @NotNull
         LocalDate endDate,
 
-        @NotNull
-        @DecimalMin(value = "0.0")
-        @Digits(integer = 10, fraction = 2)
+        /**
+         * Campo legacy del front. El backend ya no confía en este valor y calcula el precio
+         * desde el catálogo (rental_units.base_price) para construir el contrato.
+         */
         BigDecimal price,
 
         @NotNull @Positive

@@ -11,5 +11,6 @@ public record PaymentResponseDTO(
         String paymentStatus,
         String paymentMethod,
         String paymentReference,
-        String paymentExternalReference
+        String paymentExternalReference,
+        String stripeClientSecret
 ) {}

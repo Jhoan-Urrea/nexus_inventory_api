@@ -10,6 +10,8 @@ public interface OwnershipValidationService {
 
     void validatePaymentOwnership(Long paymentId, Authentication authenticatedUser);
 
+    boolean hasElevatedSalesAccess(Authentication authenticatedUser);
+
     boolean isAdmin(Authentication authenticatedUser);
 
     Long requireClientId(Authentication authenticatedUser);

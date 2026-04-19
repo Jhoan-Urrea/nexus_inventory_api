@@ -3,6 +3,8 @@ package com.example.nexus.modules.warehouse.repository;
 import com.example.nexus.modules.warehouse.entity.StorageSpace;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -27,4 +29,7 @@ public interface StorageSpaceRepository extends JpaRepository<StorageSpace, Long
 
     // Para buscar espacios por estado (ej: activos, mantenimiento)
     List<StorageSpace> findByStatusId(Long statusId);
+
+    @Query("SELECT COUNT(ss) FROM StorageSpace ss WHERE ss.sector.warehouse.id = :warehouseId")
+    long countByWarehouseId(@Param("warehouseId") Long warehouseId);
 }
