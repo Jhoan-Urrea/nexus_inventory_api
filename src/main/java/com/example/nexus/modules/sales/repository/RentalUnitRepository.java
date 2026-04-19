@@ -19,6 +19,24 @@ public interface RentalUnitRepository extends JpaRepository<RentalUnit, Long> {
     @Query("SELECT ru FROM RentalUnit ru WHERE ru.id = :rentalUnitId")
     Optional<RentalUnit> findByIdWithAssociations(@Param("rentalUnitId") Long rentalUnitId);
 
+    /**
+     * Unidad de catálogo a nivel bodega completa: FK solo a warehouse, tipo WAREHOUSE.
+     * JOIN FETCH evita N+1 al armar la ficha (ciudad, tipo, estado).
+     */
+    @Query("""
+            SELECT DISTINCT ru FROM RentalUnit ru
+            JOIN FETCH ru.entityType et
+            JOIN FETCH ru.warehouse w
+            JOIN FETCH w.city c
+            JOIN FETCH w.warehouseType wt
+            JOIN FETCH w.status st
+            WHERE ru.id = :rentalUnitId
+            AND ru.sector IS NULL
+            AND ru.storageSpace IS NULL
+            AND et.name = 'WAREHOUSE'
+            """)
+    Optional<RentalUnit> findWarehouseCatalogCardSource(@Param("rentalUnitId") Long rentalUnitId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT ru FROM RentalUnit ru WHERE ru.id = :rentalUnitId")
     Optional<RentalUnit> findByIdForUpdate(@Param("rentalUnitId") Long rentalUnitId);
@@ -37,6 +55,15 @@ public interface RentalUnitRepository extends JpaRepository<RentalUnit, Long> {
     List<RentalUnit> findByStorageSpaceSectorWarehouseId(Long warehouseId);
 
     List<RentalUnit> findByStorageSpaceId(Long storageSpaceId);
+
+    @Query("SELECT CASE WHEN COUNT(ru) > 0 THEN true ELSE false END FROM RentalUnit ru WHERE ru.warehouse.id = :warehouseId")
+    boolean existsByWarehouseId(@Param("warehouseId") Long warehouseId);
+
+    @Query("SELECT CASE WHEN COUNT(ru) > 0 THEN true ELSE false END FROM RentalUnit ru WHERE ru.sector.id = :sectorId")
+    boolean existsBySectorId(@Param("sectorId") Long sectorId);
+
+    @Query("SELECT CASE WHEN COUNT(ru) > 0 THEN true ELSE false END FROM RentalUnit ru WHERE ru.storageSpace.id = :storageSpaceId")
+    boolean existsByStorageSpaceId(@Param("storageSpaceId") Long storageSpaceId);
 
     @Query("SELECT ru.id FROM RentalUnit ru WHERE ru.warehouse.id = :warehouseId")
     List<Long> findIdsByWarehouseId(@Param("warehouseId") Long warehouseId);

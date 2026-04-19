@@ -5,5 +5,6 @@ public record RentalUnitDTO(
         Long warehouseId,
         Long sectorId,
         Long storageSpaceId,
-        Long entityTypeId
+        Long entityTypeId,
+        String availabilityStatus
 ) {}

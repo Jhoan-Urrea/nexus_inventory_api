@@ -134,6 +134,14 @@ public class ApiExceptionHandler {
         return authErrorHandlingService.build(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
     }
 
+    @ExceptionHandler(org.springframework.security.authorization.AuthorizationDeniedException.class)
+    public ResponseEntity<AuthErrorResponse> handleAuthorizationDeniedException(
+            org.springframework.security.authorization.AuthorizationDeniedException ex,
+            HttpServletRequest request) {
+        log.warn("Access denied for {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "Access denied", request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<AuthErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception processing {} {}", request.getMethod(), request.getRequestURI(), ex);

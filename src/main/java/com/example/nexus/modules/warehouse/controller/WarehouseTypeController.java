@@ -41,14 +41,14 @@ public class WarehouseTypeController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Listar tipos de bodega")
     public ResponseEntity<List<WarehouseTypeResponseDTO>> getAll() {
         return ResponseEntity.ok(warehouseTypeService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Obtener tipo de bodega por id")
     public ResponseEntity<WarehouseTypeResponseDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(warehouseTypeService.findById(id));

@@ -23,13 +23,13 @@ public class StorageSpaceTypeController {
     private final StorageSpaceTypeService service;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("isAuthenticated()")
     public List<StorageSpaceTypeResponseDTO> getAll() {
         return service.findAll();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE_EMPLOYEE','WAREHOUSE_SUPERVISOR')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<StorageSpaceTypeResponseDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(service.findById(id));
     }

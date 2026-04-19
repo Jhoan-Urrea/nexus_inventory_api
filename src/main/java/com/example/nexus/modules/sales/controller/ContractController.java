@@ -45,14 +45,24 @@ public class ContractController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT','CLIENT')")
     @Operation(summary = "List contracts")
     public ResponseEntity<List<ContractResponseDTO>> findAll() {
         return ResponseEntity.ok(contractService.findAll());
     }
 
+    @GetMapping("/me/active")
+    @PreAuthorize("hasRole('CLIENT')")
+    @Operation(
+            summary = "Mis contratos activos con unidades",
+            description = "Contratos en estado ACTIVE del cliente autenticado, con lineas y datos de bodega/sector/espacio para vistas tipo Mis bodegas."
+    )
+    public ResponseEntity<List<ContractResponseDTO>> findMyActiveContracts() {
+        return ResponseEntity.ok(contractService.findMyActiveContracts());
+    }
+
     @GetMapping("/{contractId}")
-    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT','CLIENT')")
     @Operation(summary = "Get contract by id")
     public ResponseEntity<ContractResponseDTO> findById(@PathVariable Long contractId) {
         return ResponseEntity.ok(contractService.findById(contractId));

@@ -1,6 +1,7 @@
 package com.example.nexus.modules.sales.controller;
 
 import com.example.nexus.modules.sales.dto.request.RentalAvailabilityRequestDTO;
+import com.example.nexus.modules.sales.dto.request.RentalBulkAvailabilityRequestDTO;
 import com.example.nexus.modules.sales.dto.response.AvailabilitySummaryResponseDTO;
 import com.example.nexus.modules.sales.dto.response.RentalAvailabilityResponseDTO;
 import com.example.nexus.modules.sales.service.RentalAvailabilityService;
@@ -32,6 +33,13 @@ public class RentalAvailabilityController {
     @Operation(summary = "Validate rental unit availability")
     public ResponseEntity<RentalAvailabilityResponseDTO> validate(@Valid @RequestBody RentalAvailabilityRequestDTO request) {
         return ResponseEntity.ok(rentalAvailabilityService.validate(request));
+    }
+
+    @PostMapping("/validate-bulk")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @Operation(summary = "Validate availability for multiple rental units at once (pre-checkout)")
+    public ResponseEntity<Boolean> validateBulk(@Valid @RequestBody RentalBulkAvailabilityRequestDTO request) {
+        return ResponseEntity.ok(rentalAvailabilityService.validateBulk(request));
     }
 
     @GetMapping

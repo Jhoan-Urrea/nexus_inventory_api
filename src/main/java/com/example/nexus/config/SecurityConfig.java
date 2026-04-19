@@ -25,6 +25,9 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
 
+import java.util.Arrays;
+import java.util.stream.Stream;
+
 @Configuration
 @RequiredArgsConstructor
 @EnableMethodSecurity
@@ -46,6 +49,9 @@ public class SecurityConfig {
      * Do not add /api/auth/password/change here because it remains authenticated.
      */
     private static final String[] CSRF_IGNORED_AUTH_ENDPOINTS = PUBLIC_AUTH_ENDPOINTS;
+
+    /** Stripe envia POST sin JWT ni cookie de sesion; la firma va en {@code Stripe-Signature}. */
+    private static final String STRIPE_WEBHOOK_PATH = "/api/payments/webhook/stripe";
 
     private static final String[] SWAGGER_ENDPOINTS = {
             "/v3/api-docs/**",
@@ -113,7 +119,9 @@ public class SecurityConfig {
             http.csrf(csrf -> csrf
                     .csrfTokenRepository(cookieCsrfTokenRepository())
                     .csrfTokenRequestHandler(csrfTokenRequestHandler())
-                    .ignoringRequestMatchers(CSRF_IGNORED_AUTH_ENDPOINTS));
+                    .ignoringRequestMatchers(
+                            Stream.concat(Arrays.stream(CSRF_IGNORED_AUTH_ENDPOINTS), Stream.of(STRIPE_WEBHOOK_PATH))
+                                    .toArray(String[]::new)));
         } else {
             http.csrf(AbstractHttpConfigurer::disable);
         }
@@ -125,6 +133,7 @@ public class SecurityConfig {
                     auth.requestMatchers("/api/health", "/error").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/csrf").permitAll();
                     auth.requestMatchers(HttpMethod.POST, PUBLIC_AUTH_ENDPOINTS).permitAll();
+                    auth.requestMatchers(HttpMethod.POST, STRIPE_WEBHOOK_PATH).permitAll();
                     auth.requestMatchers("/api/auth/**").authenticated();
 
                     if (appSecurityProperties.isPermitPublicLocations()) {

@@ -32,7 +32,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT','CLIENT')")
     @Operation(summary = "Create payment")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Payment created"),
@@ -44,7 +44,7 @@ public class PaymentController {
     }
 
     @GetMapping("/contract/{contractId}")
-    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALES_AGENT','CLIENT')")
     @Operation(summary = "List payments by contract")
     public ResponseEntity<List<PaymentResponseDTO>> findByContractId(@PathVariable Long contractId) {
         return ResponseEntity.ok(paymentService.getPaymentsByContract(contractId));

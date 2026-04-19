@@ -19,6 +19,8 @@ import com.example.nexus.modules.warehouse.entity.WarehouseType;
 import com.example.nexus.modules.warehouse.mapper.WarehouseMapper;
 import com.example.nexus.modules.warehouse.repository.WarehouseRepository;
 import com.example.nexus.modules.warehouse.repository.WarehouseTypeRepository;
+import com.example.nexus.modules.warehouse.event.WarehouseCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +40,7 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final CityRepository cityRepository;
     private final StatusCatalogRepository statusCatalogRepository;
     private final WarehouseTypeRepository warehouseTypeRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public WarehouseResponseDTO create(CreateWarehouseRequestDTO dto) {
@@ -49,7 +52,9 @@ public class WarehouseServiceImpl implements WarehouseService {
         WarehouseType type = requireWarehouseType(dto.warehouseTypeId());
 
         Warehouse entity = mapper.toEntity(dto, city, status, type);
-        return mapper.toResponseDTO(repository.save(entity));
+        Warehouse savedEntity = repository.save(entity);
+        eventPublisher.publishEvent(new WarehouseCreatedEvent(this, savedEntity.getId()));
+        return mapper.toResponseDTO(savedEntity);
     }
 
     @Override

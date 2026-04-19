@@ -2,12 +2,13 @@ package com.example.nexus.modules.sales.dto.response;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.List;
 
 public record ReservationResponseDTO(
         Long reservationId,
         Long clientId,
         String clientName,
-        RentalUnitResponseDTO rentalUnit,
+        List<RentalUnitResponseDTO> rentalUnits,
         String reservationToken,
         Integer status,
         LocalDate startDate,

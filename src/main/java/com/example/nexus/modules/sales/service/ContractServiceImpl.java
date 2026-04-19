@@ -17,6 +17,8 @@ import com.example.nexus.modules.sales.repository.ContractRepository;
 import com.example.nexus.modules.sales.repository.RentalUnitRepository;
 import com.example.nexus.modules.sales.repository.ReservationRepository;
 import com.example.nexus.modules.sales.security.OwnershipValidationService;
+import com.example.nexus.modules.user.entity.Client;
+import com.example.nexus.modules.user.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -44,10 +46,13 @@ public class ContractServiceImpl implements ContractService {
     private static final String MSG_CONTRACT_NOT_FOUND = "Contrato no encontrado";
     private static final String MSG_RENTAL_UNIT_NOT_FOUND = "Unidad de renta no encontrada";
     private static final String MSG_RESERVATION_NOT_FOUND = "Reserva no encontrada";
+    private static final String MSG_RENTAL_UNIT_PRICE_NOT_CONFIGURED = "La unidad de renta no tiene precio base configurado";
+    private static final String MSG_RENTAL_UNIT_PRICE_INACTIVE = "La unidad de renta tiene precio inactivo";
 
     private final ContractRepository contractRepository;
     private final RentalUnitRepository rentalUnitRepository;
     private final ReservationRepository reservationRepository;
+    private final ClientRepository clientRepository;
     private final ContractMapper contractMapper;
     private final ContractRentalUnitMapper contractRentalUnitMapper;
     private final RentalAvailabilityService rentalAvailabilityService;
@@ -59,6 +64,51 @@ public class ContractServiceImpl implements ContractService {
     public ContractResponseDTO createContract(CreateContractRequest request) {
         validateDateRange(request.startDate(), request.endDate(), "El rango de fechas del contrato no es valido");
 
+        boolean isDirectContract = request.reservationToken() == null || request.reservationToken().isBlank();
+
+        if (isDirectContract) {
+            return createDirectContract(request);
+        } else {
+            return createContractFromReservation(request);
+        }
+    }
+
+    private ContractResponseDTO createDirectContract(CreateContractRequest request) {
+        if (request.clientId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Se requiere clientId para un contrato directo sin reserva"
+            );
+        }
+        Client client = clientRepository.findById(request.clientId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente no encontrado"));
+
+        Contract contract = contractMapper.toEntity(request, client);
+
+        List<CreateContractRentalUnitRequestDTO> orderedItems = request.contractRentalUnits().stream()
+                .sorted(java.util.Comparator.comparing(CreateContractRentalUnitRequestDTO::rentalUnitId))
+                .toList();
+
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        for (CreateContractRentalUnitRequestDTO item : orderedItems) {
+            if (!seen.add(item.rentalUnitId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "No se puede asignar la misma unidad de renta mas de una vez al contrato"
+                );
+            }
+            validateRentalUnitWithinContract(contract.getStartDate(), contract.getEndDate(), item);
+            RentalUnit rentalUnit = requireRentalUnitForUpdate(item.rentalUnitId());
+            validateRentalUnitAvailabilityForContract(item, null, rentalUnit);
+            BigDecimal resolvedPrice = resolveCatalogPrice(rentalUnit);
+            contract.addRentalUnit(contractRentalUnitMapper.toEntity(item, rentalUnit, resolvedPrice));
+        }
+
+        contract.setTotalAmount(calculateTotalContractPrice(contract.getRentalUnits()));
+        return contractMapper.toResponseDTO(contractRepository.save(contract));
+    }
+
+    private ContractResponseDTO createContractFromReservation(CreateContractRequest request) {
         Reservation reservation = requireConvertibleReservation(request.reservationToken());
         ownershipValidationService.validateReservationOwnership(reservation.getId(), currentAuthentication());
         validateRequestedRentalUnits(request, reservation);
@@ -74,8 +124,9 @@ public class ContractServiceImpl implements ContractService {
 
             RentalUnit rentalUnit = requireRentalUnitForUpdate(item.rentalUnitId());
             validateRentalUnitAvailabilityForContract(item, reservation, rentalUnit);
+            BigDecimal resolvedPrice = resolveCatalogPrice(rentalUnit);
 
-            ContractRentalUnit contractRentalUnit = contractRentalUnitMapper.toEntity(item, rentalUnit);
+            ContractRentalUnit contractRentalUnit = contractRentalUnitMapper.toEntity(item, rentalUnit, resolvedPrice);
             contract.addRentalUnit(contractRentalUnit);
         }
 
@@ -101,11 +152,24 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional(readOnly = true)
     public List<ContractResponseDTO> findAll() {
-        List<Contract> contracts = ownershipValidationService.isAdmin(currentAuthentication())
+        List<Contract> contracts = ownershipValidationService.hasElevatedSalesAccess(currentAuthentication())
                 ? contractRepository.findAllWithAssociations()
                 : contractRepository.findAllByClientIdWithAssociations(
                         ownershipValidationService.requireClientId(currentAuthentication())
                 );
+        return contracts.stream()
+                .map(contractMapper::toResponseDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ContractResponseDTO> findMyActiveContracts() {
+        Long clientId = ownershipValidationService.requireClientId(currentAuthentication());
+        List<Contract> contracts = contractRepository.findAllByClientIdAndStatusWithAssociations(
+                clientId,
+                ContractStatus.ACTIVE.getCode()
+        );
         return contracts.stream()
                 .map(contractMapper::toResponseDTO)
                 .toList();
@@ -129,11 +193,6 @@ public class ContractServiceImpl implements ContractService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_CONTRACT_NOT_FOUND));
         contractStateMachineService.transitionStatus(contract, ContractStatus.CANCELLED);
         return contractMapper.toResponseDTO(contractRepository.save(contract));
-    }
-
-    private RentalUnit requireRentalUnit(Long rentalUnitId) {
-        return rentalUnitRepository.findByIdWithAssociations(rentalUnitId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, MSG_RENTAL_UNIT_NOT_FOUND));
     }
 
     private RentalUnit requireRentalUnitForUpdate(Long rentalUnitId) {
@@ -170,6 +229,10 @@ public class ContractServiceImpl implements ContractService {
         Set<Long> seenRentalUnitIds = new HashSet<>();
         boolean includesReservedRentalUnit = false;
 
+        List<Long> reservedUnitIds = reservation.getRentalUnits().stream()
+                .map(rru -> rru.getRentalUnit().getId())
+                .toList();
+
         for (CreateContractRentalUnitRequestDTO rentalUnitRequest : request.contractRentalUnits()) {
             if (!seenRentalUnitIds.add(rentalUnitRequest.rentalUnitId())) {
                 throw new ResponseStatusException(
@@ -177,7 +240,7 @@ public class ContractServiceImpl implements ContractService {
                         "No se puede asignar la misma unidad de renta mas de una vez al contrato"
                 );
             }
-            if (reservation.getRentalUnit() != null && reservation.getRentalUnit().getId().equals(rentalUnitRequest.rentalUnitId())) {
+            if (reservedUnitIds.contains(rentalUnitRequest.rentalUnitId())) {
                 includesReservedRentalUnit = true;
             }
         }
@@ -185,7 +248,7 @@ public class ContractServiceImpl implements ContractService {
         if (!includesReservedRentalUnit) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "El contrato debe incluir la unidad de renta asociada a la reserva"
+                    "El contrato debe incluir al menos una unidad de renta asociada a la reserva"
             );
         }
     }
@@ -195,10 +258,12 @@ public class ContractServiceImpl implements ContractService {
             Reservation reservation,
             RentalUnit rentalUnit
     ) {
-        Long excludedReservationId = reservation.getRentalUnit() != null
-                && reservation.getRentalUnit().getId().equals(rentalUnit.getId())
-                ? reservation.getId()
-                : null;
+        Long excludedReservationId = null;
+        if (reservation != null) {
+            boolean isReserved = reservation.getRentalUnits().stream()
+                    .anyMatch(rru -> rru.getRentalUnit().getId().equals(rentalUnit.getId()));
+            excludedReservationId = isReserved ? reservation.getId() : null;
+        }
 
         RentalAvailabilityResponseDTO availability = rentalAvailabilityService.validate(
                 new RentalAvailabilityRequestDTO(
@@ -219,6 +284,19 @@ public class ContractServiceImpl implements ContractService {
         return rentalUnits.stream()
                 .map(ContractRentalUnit::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal resolveCatalogPrice(RentalUnit rentalUnit) {
+        if (Boolean.FALSE.equals(rentalUnit.getPriceActive())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_RENTAL_UNIT_PRICE_INACTIVE);
+        }
+        if (rentalUnit.getBasePrice() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_RENTAL_UNIT_PRICE_NOT_CONFIGURED);
+        }
+        if (rentalUnit.getBasePrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_RENTAL_UNIT_PRICE_NOT_CONFIGURED);
+        }
+        return rentalUnit.getBasePrice();
     }
 
     private void validateRentalUnitWithinContract(

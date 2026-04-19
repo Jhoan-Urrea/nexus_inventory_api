@@ -3,6 +3,7 @@ package com.example.nexus.modules.sales.security;
 import com.example.nexus.modules.sales.repository.ContractRepository;
 import com.example.nexus.modules.sales.repository.PaymentRepository;
 import com.example.nexus.modules.sales.repository.ReservationRepository;
+import com.example.nexus.modules.user.constants.RoleConstants;
 import com.example.nexus.modules.user.entity.AppUser;
 import com.example.nexus.modules.user.repository.AppUserRepository;
 import com.example.nexus.util.EmailUtils;
@@ -10,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -31,7 +31,7 @@ public class OwnershipValidationServiceImpl implements OwnershipValidationServic
 
     @Override
     public void validateReservationOwnership(Long reservationId, Authentication authenticatedUser) {
-        if (isAdmin(authenticatedUser)) {
+        if (hasElevatedSalesAccess(authenticatedUser)) {
             return;
         }
         Long clientId = requireClientId(authenticatedUser);
@@ -44,7 +44,7 @@ public class OwnershipValidationServiceImpl implements OwnershipValidationServic
 
     @Override
     public void validateContractOwnership(Long contractId, Authentication authenticatedUser) {
-        if (isAdmin(authenticatedUser)) {
+        if (hasElevatedSalesAccess(authenticatedUser)) {
             return;
         }
         Long clientId = requireClientId(authenticatedUser);
@@ -57,7 +57,7 @@ public class OwnershipValidationServiceImpl implements OwnershipValidationServic
 
     @Override
     public void validatePaymentOwnership(Long paymentId, Authentication authenticatedUser) {
-        if (isAdmin(authenticatedUser)) {
+        if (hasElevatedSalesAccess(authenticatedUser)) {
             return;
         }
         Long clientId = requireClientId(authenticatedUser);
@@ -69,15 +69,15 @@ public class OwnershipValidationServiceImpl implements OwnershipValidationServic
     }
 
     @Override
+    public boolean hasElevatedSalesAccess(Authentication authenticatedUser) {
+        Authentication authentication = resolveAuthentication(authenticatedUser);
+        return hasRole(authentication, RoleConstants.ADMIN) || hasRole(authentication, RoleConstants.SALES_AGENT);
+    }
+
+    @Override
     public boolean isAdmin(Authentication authenticatedUser) {
         Authentication authentication = resolveAuthentication(authenticatedUser);
-        String expected = "ROLE_ADMIN";
-        for (GrantedAuthority authority : authentication.getAuthorities()) {
-            if (expected.equals(authority.getAuthority())) {
-                return true;
-            }
-        }
-        return false;
+        return hasRole(authentication, RoleConstants.ADMIN);
     }
 
     @Override
@@ -104,5 +104,11 @@ public class OwnershipValidationServiceImpl implements OwnershipValidationServic
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
         return authentication;
+    }
+
+    private boolean hasRole(Authentication authentication, String roleName) {
+        String expected = "ROLE_" + roleName;
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> expected.equals(authority.getAuthority()));
     }
 }

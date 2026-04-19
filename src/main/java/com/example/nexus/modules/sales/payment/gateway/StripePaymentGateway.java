@@ -6,14 +6,26 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Locale;
+import java.util.Set;
+
 import jakarta.annotation.PostConstruct;
 
 @Service
+@Profile("!test")
 public class StripePaymentGateway implements PaymentGateway {
+
+    /** Monedas sin decimales en Stripe (monto entero en unidad principal). */
+    private static final Set<String> ZERO_DECIMAL_CURRENCIES = Set.of(
+            "bif", "clp", "djf", "gnf", "jpy", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf"
+    );
 
     private final String apiKey;
     private final String currency;
@@ -33,17 +45,19 @@ public class StripePaymentGateway implements PaymentGateway {
 
     @Override
     public PaymentGatewayResult createPaymentIntent(PaymentGatewayRequest request) {
-        long amountInMinor = toMinorUnits(request.amount());
+        String effectiveCurrency = resolveEffectiveCurrency(request.chargeCurrency());
+        long amountInMinor = toMinorUnits(request.amount(), effectiveCurrency);
 
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                 .setAmount(amountInMinor)
-                .setCurrency(currency)
+                .setCurrency(effectiveCurrency)
                 .setAutomaticPaymentMethods(
                         PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                                 .setEnabled(true)
                                 .build()
                 )
                 .putMetadata("contractId", String.valueOf(request.contractId()))
+                .putMetadata("chargeCurrency", effectiveCurrency)
                 .build();
 
         try {
@@ -51,11 +65,39 @@ public class StripePaymentGateway implements PaymentGateway {
             return new PaymentGatewayResult(
                     mapStatus(intent.getStatus()),
                     request.paymentReference(),
-                    intent.getId()
+                    intent.getId(),
+                    intent.getClientSecret()
             );
         } catch (StripeException ex) {
-            throw new IllegalStateException("Stripe payment intent creation failed", ex);
+            String msg = ex.getMessage() != null ? ex.getMessage() : "Stripe payment intent creation failed";
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, msg, ex);
         }
+    }
+
+    @Override
+    public PaymentGatewayResult retrievePaymentIntent(String paymentExternalReference) {
+        try {
+            PaymentIntent intent = PaymentIntent.retrieve(paymentExternalReference);
+            return new PaymentGatewayResult(
+                    mapStatus(intent.getStatus()),
+                    null,
+                    intent.getId(),
+                    intent.getClientSecret()
+            );
+        } catch (StripeException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    ex.getMessage() != null ? ex.getMessage() : "Stripe payment intent retrieval failed",
+                    ex
+            );
+        }
+    }
+
+    private String resolveEffectiveCurrency(String fromContract) {
+        if (fromContract != null && !fromContract.isBlank()) {
+            return fromContract.trim().toLowerCase(Locale.ROOT);
+        }
+        return currency != null ? currency.trim().toLowerCase(Locale.ROOT) : "usd";
     }
 
     @Override
@@ -66,10 +108,15 @@ public class StripePaymentGateway implements PaymentGateway {
             return new PaymentGatewayResult(
                     mapStatus(confirmed.getStatus()),
                     null,
-                    confirmed.getId()
+                    confirmed.getId(),
+                    null
             );
         } catch (StripeException ex) {
-            throw new IllegalStateException("Stripe payment confirmation failed", ex);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    ex.getMessage() != null ? ex.getMessage() : "Stripe payment confirmation failed",
+                    ex
+            );
         }
     }
 
@@ -81,18 +128,26 @@ public class StripePaymentGateway implements PaymentGateway {
             return new PaymentGatewayResult(
                     mapStatus(canceled.getStatus()),
                     null,
-                    canceled.getId()
+                    canceled.getId(),
+                    null
             );
         } catch (StripeException ex) {
-            throw new IllegalStateException("Stripe payment cancellation failed", ex);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    ex.getMessage() != null ? ex.getMessage() : "Stripe payment cancellation failed",
+                    ex
+            );
         }
     }
 
-    private long toMinorUnits(BigDecimal amount) {
+    private long toMinorUnits(BigDecimal amount, String currencyLower) {
         if (amount == null) {
             return 0L;
         }
-        return amount.multiply(BigDecimal.valueOf(100))
+        BigDecimal factor = ZERO_DECIMAL_CURRENCIES.contains(currencyLower)
+                ? BigDecimal.ONE
+                : BigDecimal.valueOf(100);
+        return amount.multiply(factor)
                 .setScale(0, RoundingMode.HALF_UP)
                 .longValue();
     }
