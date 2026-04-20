@@ -10,6 +10,7 @@ import com.example.nexus.util.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -59,8 +60,10 @@ public class RentalUnitServiceImpl implements RentalUnitService {
     }
 
     @Override
+    @Transactional
     public RentalUnitPricingDTO updatePricing(Long id, UpdateRentalUnitPricingRequestDTO request, String actorEmail) {
-        RentalUnit existing = findById(id);
+        RentalUnit existing = rentalUnitRepository.findByIdWithAssociations(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rental unit not found"));
         validateCurrency(request.currency());
         existing.setBasePrice(request.basePrice());
         existing.setCurrency(request.currency().trim().toUpperCase());
