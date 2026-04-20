@@ -46,12 +46,12 @@ class SecurityHardeningIntegrationTest {
     }
 
     @Test
-    void actuatorShouldExposeOnlyHealthPublicly() throws Exception {
+    void actuatorShouldExposeHealthAndPrometheusPublicly() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/actuator/prometheus"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)

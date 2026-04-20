@@ -145,6 +145,8 @@ public class SecurityConfig {
                         auth.requestMatchers(SWAGGER_ENDPOINTS).hasRole("ADMIN");
                     }
 
+                    // Scrape Prometheus (sin JWT); el resto de /actuator puede quedar protegido vía actuator-admin-only
+                    auth.requestMatchers("/actuator/prometheus").permitAll();
                     if (appSecurityProperties.isActuatorAdminOnly()) {
                         if (appSecurityProperties.isActuatorHealthPublic()) {
                             auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
