@@ -55,6 +55,11 @@ public class NexusMetricsService {
     private Counter authHttp5xxCounter;
     private Counter authHttpSecurityRejectCounter;
 
+    private Timer salesHttpDuration;
+    private Counter salesHttpRequestsCounter;
+    private Counter salesHttp4xxCounter;
+    private Counter salesHttp5xxCounter;
+
     private MultiGauge warehouseOccupancyMultiGauge;
     private MultiGauge warehouseStorageSpacesMultiGauge;
     private MultiGauge warehouseSectorsMultiGauge;
@@ -113,6 +118,23 @@ public class NexusMetricsService {
 
         warehouseHttp5xxCounter = Counter.builder(NexusMetricsConstants.WAREHOUSE_HTTP_5XX_TOTAL)
                 .description("Respuestas 5xx en mutaciones de estructura de bodega")
+                .register(meterRegistry);
+
+        salesHttpDuration = Timer.builder(NexusMetricsConstants.SALES_HTTP_DURATION)
+                .description("Tiempo de respuesta en ventas (/api/sales/**), percentil 95")
+                .publishPercentiles(0.95)
+                .register(meterRegistry);
+
+        salesHttpRequestsCounter = Counter.builder(NexusMetricsConstants.SALES_HTTP_REQUESTS_TOTAL)
+                .description("Solicitudes HTTP a /api/sales/**")
+                .register(meterRegistry);
+
+        salesHttp4xxCounter = Counter.builder(NexusMetricsConstants.SALES_HTTP_4XX_TOTAL)
+                .description("Respuestas HTTP 4xx en /api/sales/**")
+                .register(meterRegistry);
+
+        salesHttp5xxCounter = Counter.builder(NexusMetricsConstants.SALES_HTTP_5XX_TOTAL)
+                .description("Respuestas HTTP 5xx en /api/sales/**")
                 .register(meterRegistry);
 
         warehouseOccupancyMultiGauge = MultiGauge.builder(NexusMetricsConstants.WAREHOUSE_OCCUPANCY_RATIO)
@@ -177,6 +199,20 @@ public class NexusMetricsService {
         }
         if (status >= 500 && status <= 599) {
             warehouseHttp5xxCounter.increment();
+        }
+    }
+
+    /**
+     * Latencia y códigos HTTP para el prefijo /api/sales/** (reservas, contratos, pagos asociados, etc.).
+     */
+    public void recordSalesHttp(long elapsedNanos, int status) {
+        salesHttpRequestsCounter.increment();
+        salesHttpDuration.record(elapsedNanos, TimeUnit.NANOSECONDS);
+        if (status >= 400 && status <= 499) {
+            salesHttp4xxCounter.increment();
+        }
+        if (status >= 500 && status <= 599) {
+            salesHttp5xxCounter.increment();
         }
     }
 

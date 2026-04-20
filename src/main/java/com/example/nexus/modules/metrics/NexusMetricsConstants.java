@@ -55,4 +55,19 @@ public final class NexusMetricsConstants {
 
     /** Respuestas 5xx en esas operaciones. */
     public static final String WAREHOUSE_HTTP_5XX_TOTAL = "warehouse.http.errors.5xx";
+
+    /**
+     * Módulo ventas (reservas, contratos, etc.): latencia de todas las peticiones bajo {@code /api/sales/**}.
+     * P95 en Prometheus; umbral de negocio típico ≤ 3 s.
+     */
+    public static final String SALES_HTTP_DURATION = "sales.http.duration";
+
+    /** Solicitudes HTTP a /api/sales/** */
+    public static final String SALES_HTTP_REQUESTS_TOTAL = "sales.http.requests";
+
+    /** Respuestas 4xx en /api/sales/** — tasa % = 100 * rate(4xx) / rate(requests) en Grafana. */
+    public static final String SALES_HTTP_4XX_TOTAL = "sales.http.errors.4xx";
+
+    /** Respuestas 5xx en /api/sales/** — tasa % = 100 * rate(5xx) / rate(requests). */
+    public static final String SALES_HTTP_5XX_TOTAL = "sales.http.errors.5xx";
 }

@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
  * Auth: prefijo {@code /api/auth} — Timer solo en {@code POST /api/auth/login}.
  * Bodegas: operaciones mutadoras sobre {@code /api/warehouses}, {@code /api/sectors},
  * {@code /api/storage-spaces}.
+ * Ventas: peticiones al módulo sales ({@code /api/sales/**} y alias en controllers; Timer P95 + 4xx/5xx).
  */
 @RequiredArgsConstructor
 public class NexusHttpMetricsFilter extends OncePerRequestFilter {
@@ -61,7 +62,23 @@ public class NexusHttpMetricsFilter extends OncePerRequestFilter {
                 nexusMetricsService.recordWarehouseOperationDurationNanos(elapsed);
                 nexusMetricsService.recordWarehouseHttp(status);
             }
+
+            if (isSalesApiPath(path)) {
+                nexusMetricsService.recordSalesHttp(elapsed, status);
+            }
         }
+    }
+
+    private static boolean isSalesApiPath(String path) {
+        if (path.startsWith("/api/sales")) {
+            return true;
+        }
+        if (path.startsWith("/sales/") || "/sales".equals(path)) {
+            return true;
+        }
+        return path.startsWith("/contracts")
+                || path.startsWith("/reservations")
+                || path.startsWith("/payments");
     }
 
     private static boolean shouldSkip(String path) {
