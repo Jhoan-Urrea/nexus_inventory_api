@@ -53,6 +53,17 @@ public class SecurityConfig {
     /** Stripe envia POST sin JWT ni cookie de sesion; la firma va en {@code Stripe-Signature}. */
     private static final String STRIPE_WEBHOOK_PATH = "/api/payments/webhook/stripe";
 
+    /**
+     * Prefijo del módulo ventas; las subrutas concretas se derivan para reglas y CSRF selectivo.
+     */
+    private static final String PRIVATE_SALES_PATH = "/api/sales/**";
+
+    /** POST de pago (Stripe / cliente) sin token CSRF en flujos SPA. */
+    private static final String SALES_PAYMENTS_PATH = PRIVATE_SALES_PATH.replace("**", "payments/**");
+
+    /** Contratos: cliente debe poder consultar borradores y contratos propios. */
+    private static final String SALES_CONTRACTS_PATH = PRIVATE_SALES_PATH.replace("**", "contracts/**");
+
     private static final String[] SWAGGER_ENDPOINTS = {
             "/v3/api-docs/**",
             "/swagger-ui/**",
@@ -120,7 +131,9 @@ public class SecurityConfig {
                     .csrfTokenRepository(cookieCsrfTokenRepository())
                     .csrfTokenRequestHandler(csrfTokenRequestHandler())
                     .ignoringRequestMatchers(
-                            Stream.concat(Arrays.stream(CSRF_IGNORED_AUTH_ENDPOINTS), Stream.of(STRIPE_WEBHOOK_PATH))
+                            Stream.concat(
+                                            Arrays.stream(CSRF_IGNORED_AUTH_ENDPOINTS),
+                                            Stream.of(STRIPE_WEBHOOK_PATH, SALES_PAYMENTS_PATH))
                                     .toArray(String[]::new)));
         } else {
             http.csrf(AbstractHttpConfigurer::disable);
@@ -155,6 +168,12 @@ public class SecurityConfig {
                     } else {
                         auth.requestMatchers("/actuator/**").permitAll();
                     }
+
+                    // Ventas: pagos (CSRF ignorado arriba) y contratos con rol cliente explícito
+                    auth.requestMatchers(SALES_PAYMENTS_PATH)
+                            .hasAnyRole("ADMIN", "SALES_AGENT", "CLIENT");
+                    auth.requestMatchers(SALES_CONTRACTS_PATH)
+                            .hasAnyRole("ADMIN", "SALES_AGENT", "CLIENT");
 
                     auth.anyRequest().authenticated();
                 })
