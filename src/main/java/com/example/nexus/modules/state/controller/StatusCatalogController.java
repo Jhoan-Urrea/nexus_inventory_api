@@ -33,6 +33,13 @@ public class StatusCatalogController {
     }
 
     @Operation(summary = "Listar estados por tipo de entidad")
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public List<StatusCatalogResponseDTO> getAll() {
+        return statusCatalogService.findAll();
+    }
+
+    @Operation(summary = "Listar estados por tipo de entidad")
     @GetMapping("/entity-type/{entityTypeId}")
     @PreAuthorize("isAuthenticated()")
     public List<StatusCatalogResponseDTO> getByEntityType(@PathVariable Long entityTypeId) {

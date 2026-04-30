@@ -40,6 +40,14 @@ public class StatusCatalogServiceImpl implements StatusCatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<StatusCatalogResponseDTO> findAll() {
+        return repository.findAll().stream()
+                .map(mapper::toResponseDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<StatusCatalogResponseDTO> findByEntityType(Long entityTypeId) {
         return repository.findByEntityTypeId(entityTypeId).stream()
                 .map(mapper::toResponseDTO)

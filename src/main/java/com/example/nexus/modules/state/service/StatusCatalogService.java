@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface StatusCatalogService {
     StatusCatalogResponseDTO create(CreateStatusCatalogRequestDTO dto);
+    List<StatusCatalogResponseDTO> findAll();
     List<StatusCatalogResponseDTO> findByEntityType(Long entityTypeId);
     StatusCatalogResponseDTO findById(Long id);
     StatusCatalogResponseDTO update(Long id, UpdateStatusCatalogRequestDTO dto);
