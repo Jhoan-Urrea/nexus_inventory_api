@@ -64,6 +64,9 @@ public class SecurityConfig {
     /** Contratos: cliente debe poder consultar borradores y contratos propios. */
     private static final String SALES_CONTRACTS_PATH = PRIVATE_SALES_PATH.replace("**", "contracts/**");
 
+    /** Inventario: solo rol WAREHOUSE_OPERATOR. */
+    private static final String INVENTORY_API_PATH = "/api/inventory/**";
+
     private static final String[] SWAGGER_ENDPOINTS = {
             "/v3/api-docs/**",
             "/swagger-ui/**",
@@ -174,6 +177,8 @@ public class SecurityConfig {
                             .hasAnyRole("ADMIN", "SALES_AGENT", "CLIENT");
                     auth.requestMatchers(SALES_CONTRACTS_PATH)
                             .hasAnyRole("ADMIN", "SALES_AGENT", "CLIENT");
+
+                    auth.requestMatchers(INVENTORY_API_PATH).hasRole("WAREHOUSE_OPERATOR");
 
                     auth.anyRequest().authenticated();
                 })

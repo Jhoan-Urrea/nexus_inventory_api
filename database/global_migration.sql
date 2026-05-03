@@ -236,6 +236,7 @@ INSERT INTO role (name, description)
 VALUES
     ('ADMIN', 'Platform administrator'),
     ('WAREHOUSE_EMPLOYEE', 'Warehouse operational user'),
+    ('WAREHOUSE_OPERATOR', 'Inventory process operator (/api/inventory)'),
     ('WAREHOUSE_SUPERVISOR', 'Warehouse supervisor user'),
     ('USER', 'Standard authenticated user (legacy)'),
     ('SALES_AGENT', 'Commercial user'),

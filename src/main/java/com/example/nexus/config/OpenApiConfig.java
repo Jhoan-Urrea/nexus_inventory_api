@@ -20,7 +20,7 @@ import java.util.List;
         info = @Info(
                 title = "Nexus Inventory API",
                 version = "1.0.0",
-                description = "API de gestiÃ³n de bodegas, inventarios y usuarios. Roles: ADMIN, WAREHOUSE_EMPLOYEE, WAREHOUSE_SUPERVISOR.",
+                description = "API de gestión de bodegas, inventarios y usuarios. Roles: ADMIN, WAREHOUSE_EMPLOYEE, WAREHOUSE_OPERATOR (inventario), WAREHOUSE_SUPERVISOR.",
                 contact = @Contact(name = "Nexus Team", email = "nexus@local"),
                 license = @License(name = "Apache 2.0")
         ),
